@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .seat-selector { display: inline-block; width: 40px; height: 40px; border: 1px solid #ccc; margin: 2px; cursor: pointer; text-align: center; line-height: 40px; border-radius: 5px; font-weight: bold; background: white; }
+        .seat-selector.selected { background: #0d6efd; color: white; border-color: #0044cc; }
+    </style>
+</head>
+<body class="container py-4 bg-light">
+    <div class="card p-4 shadow-sm border-0 mx-auto" style="max-width: 500px;">
+        <h4 class="fw-bold text-primary mb-3">Nayi Gadi Register Karein</h4>
+        <form method="POST">
+            <input type="password" name="admin_secret" class="form-control mb-2" placeholder="Admin Secret" required>
+            <input type="text" name="d_name" class="form-control mb-2" placeholder="Driver Name" required>
+            <input type="number" name="d_phone" class="form-control mb-2" placeholder="Phone Number" required>
+            <input type="password" name="d_pass" class="form-control mb-2" placeholder="Set Login Password" required>
+            <input type="text" name="b_name" class="form-control mb-2" placeholder="Bus Number (e.g. BR-01P-1234)" required>
+            
+            <div class="row g-2 mb-2">
+                <div class="col"><input type="text" name="from" class="form-control" placeholder="From" required></div>
+                <div class="col"><input type="text" name="to" class="form-control" placeholder="To" required></div>
+            </div>
+            <div class="row g-2 mb-3">
+                <div class="col"><input type="date" name="d_date" class="form-control" required></div>
+                <div class="col"><input type="time" name="time" class="form-control" required></div>
+            </div>
+            <input type="number" name="fare" class="form-control mb-3" placeholder="Fare Per Seat (₹)" required>
+
+            <hr>
+            <h6 class="fw-bold mb-1">Select Window Seats (Bas ek baar setup)</h6>
+            <p class="small text-muted mb-2">Jo seat window side hai unhe blue tik karein:</p>
+            
+            <div class="mb-3">
+                <div class="small fw-bold">Lower Deck:</div>
+                {% for i in range(1, 21) %}<div class="seat-selector" onclick="toggleSeat(this, '{{i}}')">{{i}}</div>{% endfor %}
+            </div>
+            <div class="mb-3">
+                <div class="small fw-bold">Upper Deck:</div>
+                {% for i in range(1, 21) %}<div class="seat-selector" onclick="toggleSeat(this, 'U{{i}}')">U{{i}}</div>{% endfor %}
+            </div>
+
+            <input type="hidden" name="window_seats" id="window_input">
+            <button type="submit" class="btn btn-primary w-100 fw-bold shadow-sm">REGISTER & SAVE LAYOUT</button>
+            <p class="text-center mt-3"><a href="/driver_login" class="text-decoration-none small fw-bold">Pehle se registered hai? Login Karein</a></p>
+        </form>
+    </div>
+
+    <script>
+        let windows = [];
+        function toggleSeat(el, id) {
+            el.classList.toggle('selected');
+            if(windows.includes(id)) { windows = windows.filter(x => x !== id); }
+            else { windows.push(id); }
+            document.getElementById('window_input').value = windows.join(',');
+        }
+    </script>
+</body>
+              </html>
+              
