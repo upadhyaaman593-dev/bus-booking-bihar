@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"></head>
+<body class="container py-4 bg-light">
+    <div class="card p-3 shadow-sm border-0 mb-3 text-center">
+        <h4>Driver Dashboard</h4>
+        <div class="d-flex justify-content-between align-items-center">
+            <span>Status: <b>{% if driver['is_online'] == 1 %}LIVE{% else %}OFFLINE{% endif %}</b></span>
+            <a href="/toggle_status" class="btn btn-sm btn-warning">Change Status</a>
+        </div>
+    </div>
+
+    <div class="card p-3 shadow-sm border-0 mb-3">
+        <h6 class="fw-bold text-primary">Yatriyon ki List (Confirmed Bookings)</h6>
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered mt-2">
+                <thead class="table-dark">
+                    <tr><th>Seat</th><th>Name</th><th>Mobile</th><th>Mode</th></tr>
+                </thead>
+                <tbody>
+                    {% for p in passengers %}
+                    <tr>
+                        <td>{{ p['seat_no'] }}</td>
+                        <td>{{ p['p_name'] }}</td>
+                        <td>{{ p['p_mobile'] }}</td>
+                        <td><span class="badge {% if p['mode'] == 'Online' %}bg-success{% else %}bg-secondary{% endif %}">{{ p['mode'] }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card p-3 bg-white border-0 shadow-sm">
+        <h6 class="fw-bold">Offline Booking (Counter)</h6>
+        <form action="/process_booking" method="POST">
+            <input type="hidden" name="bus_id" value="{{ driver['id'] }}">
+            <input type="hidden" name="mode" value="Offline">
+            <div class="row g-2">
+                <div class="col-4"><input type="text" name="seat_no" class="form-control" placeholder="Seat" required></div>
+                <div class="col-8"><input type="text" name="p_name" class="form-control" placeholder="Yatri Name" required></div>
+                <div class="col-12"><input type="number" name="p_mobile" class="form-control" placeholder="Mobile Number" required></div>
+                <button class="btn btn-dark w-100 mt-2">OFFLINE BOOK KARO</button>
+            </div>
+        </form>
+    </div>
+</body>
+  </html>
+                                                                   
