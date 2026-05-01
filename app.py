@@ -11,6 +11,7 @@ ADMIN_PASS = "ADMIN@2026"
 # Instamojo Setup
 API_KEY = os.environ.get('INSTAMOJO_API_KEY', 'test_f98...') 
 AUTH_TOKEN = os.environ.get('INSTAMOJO_AUTH_TOKEN', 'test_87a...')
+# Live mode ke liye endpoint 'https://www.instamojo.com/api/1.1/' use karein
 api = Instamojo(api_key=API_KEY, auth_token=AUTH_TOKEN, endpoint='https://test.instamojo.com/api/1.1/')
 
 def get_db():
@@ -50,13 +51,11 @@ def refund_policy():
 def contact():
     return """
     <div style='font-family:sans-serif; padding:50px; line-height:1.6; max-width:600px; margin:auto; border:1px solid #eee; margin-top:50px; border-radius:10px;'>
-        <h2 style='color:#2c3e50;'>Contact Us</h2>
-        <hr>
+        <h2 style='color:#2c3e50;'>Contact Us</h2><hr>
         <p><b>Business Name:</b> Yourtickets</p>
-        <p><b>Merchant Name:</b> Aman Upadhya</p>
+        <p><b>Merchant Name:</b> Akash Kumar</p>
         <p><b>Email:</b> upadhyaaman593@gmail.com</p>
-        <p><b>Address:</b> Patna, Bihar, India</p>
-        <br>
+        <p><b>Address:</b> Patna, Bihar, India</p><br>
         <a href='/' style='text-decoration:none; color:white; background:#007bff; padding:10px 20px; border-radius:5px;'>Back to Home</a>
     </div>
     """
@@ -70,14 +69,50 @@ def index():
 def search():
     source = request.form.get('source', '').strip()
     dest = request.form.get('destination', '').strip()
+    travel_date = request.form.get('travel_date') # Naya Filter
+    
     conn = get_db()
     cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute("SELECT * FROM buses WHERE route_from ILIKE %s AND route_to ILIKE %s AND is_online = 1", 
-                ('%'+source+'%', '%'+dest+'%'))
+    # Sirf wahi bus dikhegi jo Online ho aur jiski date match kare
+    cur.execute("""SELECT * FROM buses 
+                   WHERE route_from ILIKE %s AND route_to ILIKE %s 
+                   AND dep_date = %s AND is_online = 1""", 
+                ('%'+source+'%', '%'+dest+'%', travel_date))
     results = cur.fetchall()
     cur.close()
     conn.close()
-    return render_template('index.html', results=results, search_done=True)
+    return render_template('index.html', results=results, search_done=True, s_date=travel_date)
+
+@app.route('/book/<int:bus_id>')
+def book_bus(bus_id):
+    conn = get_db()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute("SELECT * FROM buses WHERE id = %s", (bus_id,))
+    bus = cur.fetchone()
+    cur.close()
+    conn.close()
+    if not bus: return "Bus details not found!"
+    return render_template('booking.html', bus=bus)
+
+@app.route('/update_status', methods=['POST'])
+def update_status():
+    if 'driver_id' not in session: return redirect(url_for('driver_login'))
+    new_status = int(request.form.get('status'))
+    conn = get_db()
+    cur = conn.cursor()
+    
+    if new_status == 1: # Online jane par date-time update mandatory hai
+        new_date = request.form.get('new_date')
+        new_time = request.form.get('new_time')
+        cur.execute("UPDATE buses SET is_online = %s, dep_date = %s, time = %s WHERE id = %s",
+                   (new_status, new_date, new_time, session['driver_id']))
+    else: # Offline jane par sirf status badlo
+        cur.execute("UPDATE buses SET is_online = %s WHERE id = %s", (new_status, session['driver_id']))
+        
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(url_for('driver_dashboard'))
 
 @app.route('/driver_reg', methods=['GET', 'POST'])
 def driver_reg():
@@ -114,7 +149,7 @@ def process_booking():
         )
         return redirect(response['payment_request']['longurl'])
     except Exception as e:
-        return f"Error: {str(e)}"
+        return f"Payment Error: {str(e)}"
 
 @app.route('/payment_status')
 def payment_status():
@@ -166,4 +201,3 @@ def success():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-    
