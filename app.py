@@ -49,13 +49,15 @@ def refund_policy():
 @app.route('/contact')
 def contact():
     return """
-    <div style='font-family:sans-serif; padding:40px; border:1px solid #ccc; max-width:600px; margin:50px auto;'>
-        <h2>Contact Us</h2>
+    <div style='font-family:sans-serif; padding:50px; line-height:1.6; max-width:600px; margin:auto; border:1px solid #eee; margin-top:50px; border-radius:10px;'>
+        <h2 style='color:#2c3e50;'>Contact Us</h2>
+        <hr>
         <p><b>Business Name:</b> Yourtickets</p>
         <p><b>Merchant Name:</b> Aman Upadhya</p>
         <p><b>Email:</b> upadhyaaman593@gmail.com</p>
         <p><b>Address:</b> Patna, Bihar, India</p>
-        <a href='/'>Back to Home</a>
+        <br>
+        <a href='/' style='text-decoration:none; color:white; background:#007bff; padding:10px 20px; border-radius:5px;'>Back to Home</a>
     </div>
     """
 
@@ -164,4 +166,4 @@ def success():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-        
+    
