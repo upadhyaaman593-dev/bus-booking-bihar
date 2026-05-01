@@ -5,7 +5,7 @@ from psycopg2.extras import RealDictCursor
 from instamojo_wrapper import Instamojo
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'bihar_bus_2026_secret_key_99')
+app.secret_key = os.environ.get('SECRET_KEY', 'bihar_bus_2026_final_secure')
 ADMIN_PASS = "ADMIN@2026"
 
 # Instamojo Setup
@@ -15,10 +15,8 @@ api = Instamojo(api_key=API_KEY, auth_token=AUTH_TOKEN, endpoint='https://test.i
 
 def get_db():
     DATABASE_URL = os.environ.get('DATABASE_URL')
-    conn = psycopg2.connect(DATABASE_URL, sslmode='require')
-    return conn
+    return psycopg2.connect(DATABASE_URL, sslmode='require')
 
-# Database tables ko har baar check karega ki bani hain ya nahi
 def init_db():
     try:
         conn = get_db()
@@ -37,7 +35,7 @@ def init_db():
         cur.close()
         conn.close()
     except Exception as e:
-        print(f"Database Init Error: {e}")
+        print(f"DB Init Error: {e}")
 
 init_db()
 
@@ -53,9 +51,7 @@ def search():
     
     conn = get_db()
     cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute("""SELECT * FROM buses 
-                   WHERE route_from ILIKE %s AND route_to ILIKE %s 
-                   AND dep_date = %s AND is_online = 1""", 
+    cur.execute("SELECT * FROM buses WHERE route_from ILIKE %s AND route_to ILIKE %s AND dep_date = %s AND is_online = 1", 
                 ('%'+source+'%', '%'+dest+'%', travel_date))
     results = cur.fetchall()
     cur.close()
@@ -70,43 +66,27 @@ def book_bus(bus_id):
     bus = cur.fetchone()
     cur.close()
     conn.close()
-    if not bus: return "Bus details not found in database!"
+    if not bus: return "Bus details not found!"
     return render_template('booking.html', bus=bus)
 
-@app.route('/update_status', methods=['POST'])
-def update_status():
-    if 'driver_id' not in session: return redirect(url_for('driver_login'))
-    new_status = int(request.form.get('status'))
-    conn = get_db()
-    cur = conn.cursor()
-    if new_status == 1:
-        new_date = request.form.get('new_date')
-        new_time = request.form.get('new_time')
-        cur.execute("UPDATE buses SET is_online = %s, dep_date = %s, time = %s WHERE id = %s",
-                   (new_status, new_date, new_time, session['driver_id']))
-    else:
-        cur.execute("UPDATE buses SET is_online = %s WHERE id = %s", (new_status, session['driver_id']))
-    conn.commit()
-    cur.close()
-    conn.close()
-    return redirect(url_for('driver_dashboard'))
-
-@app.route('/driver_offline_book', methods=['POST'])
-def driver_offline_book():
-    if 'driver_id' not in session: return redirect(url_for('driver_login'))
-    bus_id = session['driver_id']
-    seat = request.form.get('seat_no')
-    name = request.form.get('p_name')
-    mobile = request.form.get('p_mobile')
-    
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("INSERT INTO bookings (bus_id, seat_no, p_name, p_mobile, payment_id, mode) VALUES (%s,%s,%s,%s,%s,%s)",
-               (bus_id, seat, name, mobile, 'DIRECT-ENTRY', 'Offline'))
-    conn.commit()
-    cur.close()
-    conn.close()
-    return redirect(url_for('driver_dashboard'))
+@app.route('/driver_reg', methods=['GET', 'POST'])
+def driver_reg():
+    if request.method == 'POST':
+        if request.form.get('admin_secret') != ADMIN_PASS: return "Galat Admin Code!"
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('''INSERT INTO buses (driver_name, driver_phone, password, bus_name, route_from, route_to,
+                      dep_date, arr_date, time, fare, window_seats, is_online) 
+                      VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, 1)''',
+                   (request.form.get('d_name'), request.form.get('d_phone'), request.form.get('d_pass'),
+                    request.form.get('b_name'), request.form.get('from'), request.form.get('to'),
+                    request.form.get('d_date'), request.form.get('d_date'), request.form.get('time'),
+                    request.form.get('fare', 0), request.form.get('window_seats', '')))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return redirect(url_for('driver_login'))
+    return render_template('driver_reg.html')
 
 @app.route('/driver_login', methods=['GET', 'POST'])
 def driver_login():
@@ -121,7 +101,7 @@ def driver_login():
         if driver:
             session['driver_id'] = driver['id']
             return redirect(url_for('driver_dashboard'))
-        return "Ghalat details! Dubara koshish karein."
+        return "Invalid Login!"
     return render_template('driver_login.html')
 
 @app.route('/dashboard')
@@ -137,24 +117,45 @@ def driver_dashboard():
     conn.close()
     return render_template('dashboard.html', driver=driver, passengers=passengers)
 
+@app.route('/driver_offline_book', methods=['POST'])
+def driver_offline_book():
+    if 'driver_id' not in session: return redirect(url_for('driver_login'))
+    bus_id = session['driver_id']
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("INSERT INTO bookings (bus_id, seat_no, p_name, p_mobile, payment_id, mode) VALUES (%s,%s,%s,%s,%s,%s)",
+               (bus_id, request.form.get('seat_no'), request.form.get('p_name'), 
+                request.form.get('p_mobile'), 'OFFLINE-DRIVER', 'Offline'))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(url_for('driver_dashboard'))
+
+@app.route('/update_status', methods=['POST'])
+def update_status():
+    if 'driver_id' not in session: return redirect(url_for('driver_login'))
+    new_status = int(request.form.get('status'))
+    conn = get_db()
+    cur = conn.cursor()
+    if new_status == 1:
+        cur.execute("UPDATE buses SET is_online = %s, dep_date = %s, time = %s WHERE id = %s",
+                   (new_status, request.form.get('new_date'), request.form.get('new_time'), session['driver_id']))
+    else:
+        cur.execute("UPDATE buses SET is_online = %s WHERE id = %s", (new_status, session['driver_id']))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(url_for('driver_dashboard'))
+
 @app.route('/process_booking', methods=['POST'])
 def process_booking():
-    bus_id = request.form.get('bus_id')
-    seat = request.form.get('seat_no')
-    name = request.form.get('p_name')
-    mobile = request.form.get('p_mobile')
-    fare = request.form.get('fare')
+    bus_id, seat, name, mobile, fare = request.form.get('bus_id'), request.form.get('seat_no'), request.form.get('p_name'), request.form.get('p_mobile'), request.form.get('fare')
     try:
-        response = api.payment_request_create(
-            amount=fare,
-            purpose=f"Seat {seat}",
-            buyer_name=name,
-            phone=mobile,
-            redirect_url=url_for('payment_status', bus_id=bus_id, seat=seat, name=name, mobile=mobile, _external=True)
-        )
+        response = api.payment_request_create(amount=fare, purpose=f"Ticket {seat}", buyer_name=name, phone=mobile,
+            redirect_url=url_for('payment_status', bus_id=bus_id, seat=seat, name=name, mobile=mobile, _external=True))
         return redirect(response['payment_request']['longurl'])
     except Exception as e:
-        return f"Payment Gateway Error: {str(e)}"
+        return f"Payment Error: {str(e)}"
 
 @app.route('/payment_status')
 def payment_status():
@@ -169,7 +170,7 @@ def payment_status():
         cur.close()
         conn.close()
         return redirect(url_for('success', id=request.args.get('payment_id'), seat=request.args.get('seat')))
-    return "Payment Adhoora hai ya fail ho gaya."
+    return "Payment Failed!"
 
 @app.route('/success')
 def success():
@@ -177,4 +178,4 @@ def success():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-    
+        
