@@ -2,10 +2,17 @@ from flask import Flask, render_template, request, redirect, url_for, session
 import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from instamojo_wrapper import Instamojo
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'bihar_bus_2026_secret')
 ADMIN_PASS = "ADMIN@2026"
+
+# Instamojo Setup
+# Note: KYC ke baad ye keys dashboard se milengi. Abhi ke liye 'test' keys use kar sakte hain.
+API_KEY = os.environ.get('INSTAMOJO_API_KEY', 'test_f98...') 
+AUTH_TOKEN = os.environ.get('INSTAMOJO_AUTH_TOKEN', 'test_87a...')
+api = Instamojo(api_key=API_KEY, auth_token=AUTH_TOKEN, endpoint='https://test.instamojo.com/api/1.1/')
 
 def get_db():
     DATABASE_URL = os.environ.get('DATABASE_URL')
@@ -31,6 +38,29 @@ def init_db():
 
 init_db()
 
+# --- Compliance Routes (KYC Approval ke liye) ---
+
+@app.route('/terms')
+def terms():
+    return render_template('terms.html')
+
+@app.route('/refund-policy')
+def refund_policy():
+    return render_template('refund.html')
+
+@app.route('/contact')
+def contact():
+    return """
+    <div style='font-family:sans-serif; padding:20px;'>
+        <h2>Contact Us</h2>
+        <p><b>Business Name:</b> Yourtickets (Aman Upadhya)</p>
+        <p><b>Email:</b> upadhyaaman593@gmail.com</p>
+        <p><b>Address:</b> Patna, Bihar, India</p>
+    </div>
+    """
+
+# --- Main Routes ---
+
 @app.route('/')
 def index():
     return render_template('index.html', search_done=False)
@@ -47,54 +77,6 @@ def search():
     cur.close()
     conn.close()
     return render_template('index.html', results=results, search_done=True)
-
-@app.route('/toggle_status')
-def toggle_status():
-    if 'driver_id' not in session: return redirect(url_for('driver_login'))
-    conn = get_db()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute("SELECT is_online FROM buses WHERE id = %s", (session['driver_id'],))
-    driver = cur.fetchone()
-    new_status = 0 if driver['is_online'] == 1 else 1
-    cur.execute("UPDATE buses SET is_online = %s WHERE id = %s", (new_status, session['driver_id']))
-    conn.commit()
-    cur.close()
-    conn.close()
-    return redirect(url_for('driver_dashboard'))
-
-@app.route('/driver_reg', methods=['GET', 'POST'])
-def driver_reg():
-    if request.method == 'POST':
-        if request.form.get('admin_secret') != ADMIN_PASS: return "Galat Admin Code!"
-        conn = get_db()
-        cur = conn.cursor()
-        cur.execute('''INSERT INTO buses (driver_name, driver_phone, password, bus_name, route_from, route_to,
-                      dep_date, arr_date, time, fare, window_seats) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)''',
-                   (request.form.get('d_name'), request.form.get('d_phone'), request.form.get('d_pass'),
-                    request.form.get('b_name'), request.form.get('from'), request.form.get('to'),
-                    request.form.get('d_date'), request.form.get('d_date'), request.form.get('time'),
-                    request.form.get('fare', 0), request.form.get('window_seats', '')))
-        conn.commit()
-        cur.close()
-        conn.close()
-        return redirect(url_for('driver_login'))
-    return render_template('driver_reg.html')
-
-@app.route('/driver_login', methods=['GET', 'POST'])
-def driver_login():
-    if request.method == 'POST':
-        conn = get_db()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT * FROM buses WHERE driver_phone = %s AND password = %s",
-                            (request.form.get('phone'), request.form.get('password')))
-        driver = cur.fetchone()
-        cur.close()
-        conn.close()
-        if driver:
-            session['driver_id'] = driver['id']
-            return redirect(url_for('driver_dashboard'))
-        return "Invalid Login!"
-    return render_template('driver_login.html')
 
 @app.route('/book/<int:bus_id>')
 def book_seat(bus_id):
@@ -115,20 +97,67 @@ def process_booking():
     seat = request.form.get('seat_no')
     name = request.form.get('p_name')
     mobile = request.form.get('p_mobile')
-    pay_id = request.form.get('pay_id', 'OFFLINE')
-    mode = request.form.get('mode', 'Online')
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("INSERT INTO bookings (bus_id, seat_no, p_name, p_mobile, payment_id, mode) VALUES (%s,%s,%s,%s,%s,%s)",
-               (bus_id, seat, name, mobile, pay_id, mode))
-    conn.commit()
-    cur.close()
-    conn.close()
-    return redirect(url_for('success', id=pay_id, seat=seat))
+    fare = request.form.get('fare')
+
+    # Payment Link Create Karein
+    try:
+        response = api.payment_request_create(
+            amount=fare,
+            purpose=f"Ticket {seat} - {bus_id}",
+            buyer_name=name,
+            phone=mobile,
+            redirect_url=url_for('payment_status', bus_id=bus_id, seat=seat, name=name, mobile=mobile, _external=True)
+        )
+        # User ko Instamojo page par bhejein
+        return redirect(response['payment_request']['longurl'])
+    except Exception as e:
+        return f"Payment Gateway Error: {str(e)}"
+
+@app.route('/payment_status')
+def payment_status():
+    # URL parameters se data nikalna
+    pay_id = request.args.get('payment_id')
+    pay_req_id = request.args.get('payment_request_id')
+    bus_id = request.args.get('bus_id')
+    seat = request.args.get('seat')
+    name = request.args.get('name')
+    mobile = request.args.get('mobile')
+
+    # Check payment status
+    res = api.payment_request_status(pay_req_id)
+    if res['payment_request']['status'] == 'Completed':
+        # Success: DB mein save karein
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("INSERT INTO bookings (bus_id, seat_no, p_name, p_mobile, payment_id, mode) VALUES (%s,%s,%s,%s,%s,%s)",
+                   (bus_id, seat, name, mobile, pay_id, 'Online'))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return redirect(url_for('success', id=pay_id, seat=seat))
+    else:
+        return "<h1>Payment Failed!</h1><p>Please try again from the home page.</p>"
 
 @app.route('/success')
 def success():
     return render_template('success.html', payment_id=request.args.get('id'), seat=request.args.get('seat'))
+
+# --- Driver & Admin Routes (Same as before) ---
+@app.route('/driver_login', methods=['GET', 'POST'])
+def driver_login():
+    if request.method == 'POST':
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT * FROM buses WHERE driver_phone = %s AND password = %s",
+                            (request.form.get('phone'), request.form.get('password')))
+        driver = cur.fetchone()
+        cur.close()
+        conn.close()
+        if driver:
+            session['driver_id'] = driver['id']
+            return redirect(url_for('driver_dashboard'))
+        return "Invalid Login!"
+    return render_template('driver_login.html')
 
 @app.route('/dashboard')
 def driver_dashboard():
@@ -145,5 +174,4 @@ def driver_dashboard():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-
     
