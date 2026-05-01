@@ -9,7 +9,6 @@ app.secret_key = os.environ.get('SECRET_KEY', 'bihar_bus_2026_secret')
 ADMIN_PASS = "ADMIN@2026"
 
 # Instamojo Setup
-# Note: KYC ke baad ye keys dashboard se milengi. Abhi ke liye 'test' keys use kar sakte hain.
 API_KEY = os.environ.get('INSTAMOJO_API_KEY', 'test_f98...') 
 AUTH_TOKEN = os.environ.get('INSTAMOJO_AUTH_TOKEN', 'test_87a...')
 api = Instamojo(api_key=API_KEY, auth_token=AUTH_TOKEN, endpoint='https://test.instamojo.com/api/1.1/')
@@ -38,8 +37,7 @@ def init_db():
 
 init_db()
 
-# --- Compliance Routes (KYC Approval ke liye) ---
-
+# --- Compliance Routes ---
 @app.route('/terms')
 def terms():
     return render_template('terms.html')
@@ -51,16 +49,17 @@ def refund_policy():
 @app.route('/contact')
 def contact():
     return """
-    <div style='font-family:sans-serif; padding:20px;'>
+    <div style='font-family:sans-serif; padding:40px; border:1px solid #ccc; max-width:600px; margin:50px auto;'>
         <h2>Contact Us</h2>
-        <p><b>Business Name:</b> Yourtickets (Aman Upadhya)</p>
+        <p><b>Business Name:</b> Yourtickets</p>
+        <p><b>Merchant Name:</b> Aman Upadhya</p>
         <p><b>Email:</b> upadhyaaman593@gmail.com</p>
         <p><b>Address:</b> Patna, Bihar, India</p>
+        <a href='/'>Back to Home</a>
     </div>
     """
 
 # --- Main Routes ---
-
 @app.route('/')
 def index():
     return render_template('index.html', search_done=False)
@@ -78,18 +77,23 @@ def search():
     conn.close()
     return render_template('index.html', results=results, search_done=True)
 
-@app.route('/book/<int:bus_id>')
-def book_seat(bus_id):
-    conn = get_db()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute("SELECT * FROM buses WHERE id = %s", (bus_id,))
-    bus = cur.fetchone()
-    cur.execute("SELECT seat_no FROM bookings WHERE bus_id = %s", (bus_id,))
-    booked = [row['seat_no'] for row in cur.fetchall()]
-    cur.close()
-    conn.close()
-    windows = bus['window_seats'].split(',') if bus['window_seats'] else []
-    return render_template('seats.html', bus=bus, booked_seats=booked, windows=windows)
+@app.route('/driver_reg', methods=['GET', 'POST'])
+def driver_reg():
+    if request.method == 'POST':
+        if request.form.get('admin_secret') != ADMIN_PASS: return "Galat Admin Code!"
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('''INSERT INTO buses (driver_name, driver_phone, password, bus_name, route_from, route_to,
+                      dep_date, arr_date, time, fare, window_seats) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)''',
+                   (request.form.get('d_name'), request.form.get('d_phone'), request.form.get('d_pass'),
+                    request.form.get('b_name'), request.form.get('from'), request.form.get('to'),
+                    request.form.get('d_date'), request.form.get('d_date'), request.form.get('time'),
+                    request.form.get('fare', 0), request.form.get('window_seats', '')))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return redirect(url_for('driver_login'))
+    return render_template('driver_reg.html')
 
 @app.route('/process_booking', methods=['POST'])
 def process_booking():
@@ -98,51 +102,33 @@ def process_booking():
     name = request.form.get('p_name')
     mobile = request.form.get('p_mobile')
     fare = request.form.get('fare')
-
-    # Payment Link Create Karein
     try:
         response = api.payment_request_create(
             amount=fare,
-            purpose=f"Ticket {seat} - {bus_id}",
+            purpose=f"Ticket {seat}",
             buyer_name=name,
             phone=mobile,
             redirect_url=url_for('payment_status', bus_id=bus_id, seat=seat, name=name, mobile=mobile, _external=True)
         )
-        # User ko Instamojo page par bhejein
         return redirect(response['payment_request']['longurl'])
     except Exception as e:
-        return f"Payment Gateway Error: {str(e)}"
+        return f"Error: {str(e)}"
 
 @app.route('/payment_status')
 def payment_status():
-    # URL parameters se data nikalna
-    pay_id = request.args.get('payment_id')
     pay_req_id = request.args.get('payment_request_id')
-    bus_id = request.args.get('bus_id')
-    seat = request.args.get('seat')
-    name = request.args.get('name')
-    mobile = request.args.get('mobile')
-
-    # Check payment status
     res = api.payment_request_status(pay_req_id)
     if res['payment_request']['status'] == 'Completed':
-        # Success: DB mein save karein
         conn = get_db()
         cur = conn.cursor()
         cur.execute("INSERT INTO bookings (bus_id, seat_no, p_name, p_mobile, payment_id, mode) VALUES (%s,%s,%s,%s,%s,%s)",
-                   (bus_id, seat, name, mobile, pay_id, 'Online'))
+                   (request.args.get('bus_id'), request.args.get('seat'), request.args.get('name'), request.args.get('mobile'), request.args.get('payment_id'), 'Online'))
         conn.commit()
         cur.close()
         conn.close()
-        return redirect(url_for('success', id=pay_id, seat=seat))
-    else:
-        return "<h1>Payment Failed!</h1><p>Please try again from the home page.</p>"
+        return redirect(url_for('success', id=request.args.get('payment_id'), seat=request.args.get('seat')))
+    return "Payment Failed!"
 
-@app.route('/success')
-def success():
-    return render_template('success.html', payment_id=request.args.get('id'), seat=request.args.get('seat'))
-
-# --- Driver & Admin Routes (Same as before) ---
 @app.route('/driver_login', methods=['GET', 'POST'])
 def driver_login():
     if request.method == 'POST':
@@ -172,6 +158,10 @@ def driver_dashboard():
     conn.close()
     return render_template('dashboard.html', driver=driver, passengers=passengers)
 
+@app.route('/success')
+def success():
+    return render_template('success.html', payment_id=request.args.get('id'), seat=request.args.get('seat'))
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-    
+        
