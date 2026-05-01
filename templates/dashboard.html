@@ -9,11 +9,17 @@
         body { background-color: #f4f7f6; font-family: 'Segoe UI', sans-serif; }
         .dashboard-header { background: #212529; color: white; padding: 15px 0; margin-bottom: 20px; }
         .status-card { border-radius: 12px; border: none; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        /* Scrolling Section */
-        .scroll-box { max-height: 350px; overflow-y: auto; background: white; border-radius: 10px; border: 1px solid #ddd; }
+        /* Scrolling Section - Tabhi dikhega jab data zyada ho */
+        .scroll-box { 
+            max-height: 400px; 
+            overflow-y: auto; 
+            background: white; 
+            border-radius: 10px; 
+            border: 1px solid #ddd; 
+        }
         .badge-online { background-color: #28a745; color: white; padding: 5px 12px; border-radius: 50px; font-size: 0.8rem; }
         .badge-offline { background-color: #dc3545; color: white; padding: 5px 12px; border-radius: 50px; font-size: 0.8rem; }
-        .table thead { position: sticky; top: 0; background: #343a40; color: white; z-index: 1; }
+        .table thead { position: sticky; top: 0; background: #343a40; color: white; z-index: 10; }
     </style>
 </head>
 <body>
@@ -21,74 +27,71 @@
 <div class="dashboard-header shadow">
     <div class="container d-flex justify-content-between align-items-center">
         <h4 class="mb-0">Driver Dashboard</h4>
-        <div class="small">Welcome, <strong>{{ driver.driver_name }}</strong> | <a href="/" class="text-white">View Site</a></div>
+        <div class="small">Driver: <strong>{{ driver.driver_name }}</strong> | <a href="/" class="text-white">View Site</a></div>
     </div>
 </div>
 
 <div class="container">
     <div class="row g-3 mb-4">
-        <div class="col-md-6">
+        <div class="col-md-5">
             <div class="card status-card p-3 h-100">
-                <h6 class="fw-bold">Bus Status</h6>
+                <h6 class="fw-bold">Bus Control</h6>
                 <p class="mb-2">{{ driver.bus_name }} | 
                     {% if driver.is_online %}
-                        <span class="badge-online">ONLINE</span>
+                        <span class="badge-online">● ONLINE</span>
                     {% else %}
-                        <span class="badge-offline">OFFLINE</span>
+                        <span class="badge-offline">● OFFLINE</span>
                     {% endif %}
                 </p>
                 
-                <div class="d-flex gap-2">
+                <div class="d-grid gap-2">
                     {% if driver.is_online %}
                         <form action="/update_status" method="POST">
                             <input type="hidden" name="status" value="0">
-                            <button type="submit" class="btn btn-danger btn-sm">Stop Bookings</button>
+                            <button type="submit" class="btn btn-danger btn-sm w-100">Stop Online Bookings</button>
                         </form>
                     {% else %}
-                        <button class="btn btn-success btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#liveForm">Go Online</button>
+                        <button class="btn btn-success btn-sm w-100" type="button" data-bs-toggle="collapse" data-bs-target="#liveForm">Start Online Bookings</button>
                     {% endif %}
-                    <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#directBook">Direct Book (Offline)</button>
                 </div>
 
                 <div class="collapse mt-3" id="liveForm">
-                    <form action="/update_status" method="POST" class="p-2 border rounded bg-light">
+                    <form action="/update_status" method="POST" class="p-2 border rounded bg-light shadow-sm">
                         <input type="hidden" name="status" value="1">
                         <div class="row g-2">
-                            <div class="col-6"><input type="date" name="new_date" class="form-control form-control-sm" required></div>
-                            <div class="col-6"><input type="time" name="new_time" class="form-control form-control-sm" required></div>
-                            <div class="col-12"><button class="btn btn-dark btn-sm w-100 mt-2">Update & Go Live</button></div>
+                            <div class="col-6"><label class="x-small">Trip Date</label><input type="date" name="new_date" class="form-control form-control-sm" required></div>
+                            <div class="col-6"><label class="x-small">Trip Time</label><input type="time" name="new_time" class="form-control form-control-sm" required></div>
+                            <div class="col-12"><button class="btn btn-primary btn-sm w-100 mt-2">Go Live Now</button></div>
                         </div>
                     </form>
                 </div>
             </div>
         </div>
 
-        <div class="col-md-6">
-            <div class="collapse" id="directBook">
-                <div class="card status-card p-3 h-100">
-                    <h6 class="fw-bold text-primary">Direct Ticket Entry</h6>
-                    <form action="/driver_offline_book" method="POST">
-                        <div class="row g-2">
-                            <div class="col-4"><input type="text" name="seat_no" placeholder="Seat" class="form-control form-control-sm" required></div>
-                            <div class="col-8"><input type="text" name="p_name" placeholder="Passenger Name" class="form-control form-control-sm" required></div>
-                            <div class="col-12"><input type="number" name="p_mobile" placeholder="Mobile No" class="form-control form-control-sm" required></div>
-                            <div class="col-12"><button type="submit" class="btn btn-primary btn-sm w-100">Confirm Offline Booking</button></div>
-                        </div>
-                    </form>
-                </div>
+        <div class="col-md-7">
+            <div class="card status-card p-3 h-100 border-primary" style="border-left: 5px solid #0d6efd;">
+                <h6 class="fw-bold text-primary">Direct Ticket Booking (Manual)</h6>
+                <form action="/driver_offline_book" method="POST">
+                    <div class="row g-2">
+                        <div class="col-3"><input type="text" name="seat_no" placeholder="Seat No" class="form-control form-control-sm" required></div>
+                        <div class="col-9"><input type="text" name="p_name" placeholder="Passenger Name" class="form-control form-control-sm" required></div>
+                        <div class="col-12"><input type="number" name="p_mobile" placeholder="Mobile Number" class="form-control form-control-sm" required></div>
+                        <div class="col-12"><button type="submit" class="btn btn-primary btn-sm w-100 fw-bold">Book Ticket Now</button></div>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
 
-    <h6 class="fw-bold mb-2">Passenger List / Bookings</h6>
-    <div class="scroll-box shadow-sm">
+    <h6 class="fw-bold mb-2">Total Bookings & Passengers</h6>
+    <div class="scroll-box shadow-sm border">
         <table class="table table-sm table-hover mb-0">
             <thead>
                 <tr>
                     <th class="p-2">Seat</th>
-                    <th class="p-2">Passenger Name</th>
+                    <th class="p-2">Name</th>
                     <th class="p-2">Mobile</th>
-                    <th class="p-2">Payment ID</th>
+                    <th class="p-2 text-end">ID / Mode</th>
                 </tr>
             </thead>
             <tbody>
@@ -98,11 +101,15 @@
                         <td class="p-2 fw-bold text-primary">{{ p.seat_no }}</td>
                         <td class="p-2">{{ p.p_name }}</td>
                         <td class="p-2 small">{{ p.p_mobile }}</td>
-                        <td class="p-2"><span class="badge {% if p.mode == 'Offline' %}bg-secondary{% else %}bg-info text-dark{% endif %}">{{ p.payment_id }}</span></td>
+                        <td class="p-2 text-end">
+                            <span class="badge {% if p.mode == 'Offline' %}bg-secondary{% else %}bg-info text-dark{% endif %}">
+                                {{ p.payment_id[:12] }}...
+                            </span>
+                        </td>
                     </tr>
                     {% endfor %}
                 {% else %}
-                    <tr><td colspan="4" class="text-center py-4 text-muted">No bookings found.</td></tr>
+                    <tr><td colspan="4" class="text-center py-5 text-muted">Abhi koi booking nahi hai.</td></tr>
                 {% endif %}
             </tbody>
         </table>
@@ -111,5 +118,5 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
-                            </html>
-                                                    
+                        </html>
+                    
