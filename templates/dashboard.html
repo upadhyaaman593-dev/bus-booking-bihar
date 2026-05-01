@@ -1,50 +1,126 @@
 <!DOCTYPE html>
-<html>
-<head><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"></head>
-<body class="container py-4 bg-light">
-    <div class="card p-3 shadow-sm border-0 mb-3 text-center">
-        <h4>Driver Dashboard</h4>
-        <div class="d-flex justify-content-between align-items-center">
-            <span>Status: <b>{% if driver['is_online'] == 1 %}LIVE{% else %}OFFLINE{% endif %}</b></span>
-            <a href="/toggle_status" class="btn btn-sm btn-warning">Change Status</a>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Driver Dashboard - Yourtickets</title>
+    <style>
+        body { background-color: #f4f7f6; font-family: 'Segoe UI', sans-serif; }
+        .dashboard-header { background: #212529; color: white; padding: 20px 0; margin-bottom: 30px; }
+        .status-card { border-radius: 15px; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .passenger-table { background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .badge-live { background-color: #28a745; color: white; padding: 8px 15px; border-radius: 50px; }
+        .badge-offline { background-color: #dc3545; color: white; padding: 8px 15px; border-radius: 50px; }
+        .btn-update { border-radius: 8px; font-weight: 600; }
+    </style>
+</head>
+<body>
+
+<div class="dashboard-header shadow">
+    <div class="container d-flex justify-content-between align-items-center">
+        <h3 class="mb-0">Driver Dashboard</h3>
+        <div>
+            <span class="me-3">Welcome, <strong>{{ driver.driver_name }}</strong></span>
+            <a href="/" class="btn btn-outline-light btn-sm">View Site</a>
         </div>
     </div>
+</div>
 
-    <div class="card p-3 shadow-sm border-0 mb-3">
-        <h6 class="fw-bold text-primary">Yatriyon ki List (Confirmed Bookings)</h6>
-        <div class="table-responsive">
-            <table class="table table-sm table-bordered mt-2">
-                <thead class="table-dark">
-                    <tr><th>Seat</th><th>Name</th><th>Mobile</th><th>Mode</th></tr>
-                </thead>
-                <tbody>
-                    {% for p in passengers %}
-                    <tr>
-                        <td>{{ p['seat_no'] }}</td>
-                        <td>{{ p['p_name'] }}</td>
-                        <td>{{ p['p_mobile'] }}</td>
-                        <td><span class="badge {% if p['mode'] == 'Online' %}bg-success{% else %}bg-secondary{% endif %}">{{ p['mode'] }}</span></td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <div class="card p-3 bg-white border-0 shadow-sm">
-        <h6 class="fw-bold">Offline Booking (Counter)</h6>
-        <form action="/process_booking" method="POST">
-            <input type="hidden" name="bus_id" value="{{ driver['id'] }}">
-            <input type="hidden" name="mode" value="Offline">
-            <div class="row g-2">
-                <div class="col-4"><input type="text" name="seat_no" class="form-control" placeholder="Seat" required></div>
-                <div class="col-8"><input type="text" name="p_name" class="form-control" placeholder="Yatri Name" required></div>
-                <div class="col-12"><input type="number" name="p_mobile" class="form-control" placeholder="Mobile Number" required></div>
-                <button class="btn btn-dark w-100 mt-2">OFFLINE BOOK KARO</button>
+<div class="container">
+    <div class="card status-card p-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center flex-wrap">
+            <div>
+                <h5 class="text-muted mb-1">Bus: {{ driver.bus_name }}</h5>
+                <p class="mb-0">
+                    Status: 
+                    {% if driver.is_online %}
+                        <span class="badge-live">● LIVE & ONLINE</span>
+                    {% else %}
+                        <span class="badge-offline">● OFFLINE</span>
+                    {% endif %}
+                </p>
+                {% if driver.is_online %}
+                <div class="mt-2 small text-primary">
+                    Current Trip: <strong>{{ driver.dep_date }}</strong> at <strong>{{ driver.time }}</strong>
+                </div>
+                {% endif %}
             </div>
-        </form>
+
+            <div class="mt-3 mt-md-0">
+                {% if driver.is_online %}
+                    <form action="/update_status" method="POST">
+                        <input type="hidden" name="status" value="0">
+                        <button type="submit" class="btn btn-danger btn-update px-4">Stop Bookings (Go Offline)</button>
+                    </form>
+                {% else %}
+                    <button class="btn btn-success btn-update px-4" type="button" data-bs-toggle="collapse" data-bs-target="#onlineForm">
+                        Start Bookings (Go Online)
+                    </button>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="collapse mt-4" id="onlineForm">
+            <div class="p-3 border rounded bg-light">
+                <h6 class="fw-bold mb-3">Set Trip Details to Go Live:</h6>
+                <form action="/update_status" method="POST">
+                    <input type="hidden" name="status" value="1">
+                    <div class="row g-3">
+                        <div class="col-md-5">
+                            <label class="form-label small">Departure Date:</label>
+                            <input type="date" name="new_date" class="form-control" required>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label small">Departure Time:</label>
+                            <input type="time" name="new_time" class="form-control" required>
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100 btn-update">Go Live</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
+
+    <div class="row">
+        <div class="col-12">
+            <h5 class="mb-3 fw-bold">Recent Bookings / Passenger List</h5>
+            <div class="passenger-table">
+                <table class="table table-hover mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Seat</th>
+                            <th>Passenger Name</th>
+                            <th>Mobile</th>
+                            <th>Payment ID</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if passengers %}
+                            {% for p in passengers %}
+                            <tr>
+                                <td class="fw-bold text-primary">{{ p.seat_no }}</td>
+                                <td>{{ p.p_name }}</td>
+                                <td>{{ p.p_mobile }}</td>
+                                <td class="small text-muted">{{ p.payment_id }}</td>
+                                <td><span class="badge bg-success">Confirmed</span></td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center py-4 text-muted">Abhi tak koi booking nahi mili hai.</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
-  </html>
-                                                                   
+</html>
