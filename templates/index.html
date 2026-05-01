@@ -8,13 +8,12 @@
     <style>
         .search-card { border-radius: 20px; background: white; }
         .bus-card { border-radius: 15px; transition: 0.3s; }
-        .bus-card:hover { transform: translateY(-5px); }
-        .navbar { background-color: #2c3e50 !important; }
+        .footer { background: #2c3e50; color: white; padding: 20px 0; margin-top: 50px; }
     </style>
 </head>
 <body class="bg-light">
 
-<nav class="navbar navbar-dark mb-4 shadow">
+<nav class="navbar navbar-dark bg-dark mb-4 shadow">
     <div class="container">
         <a class="navbar-brand fw-bold" href="/">Yourtickets</a>
         <a href="/driver_login" class="btn btn-outline-light btn-sm fw-bold">Driver Dashboard</a>
@@ -22,58 +21,41 @@
 </nav>
 
 <div class="container">
-    <div class="card p-4 shadow-sm mb-4 border-0 search-card">
-        <h5 class="text-center mb-3 fw-bold text-secondary">Dhoondhein Apni Bus</h5>
+    <div class="card p-4 shadow-sm mb-4 border-0 search-card text-center">
+        <h5 class="mb-3 fw-bold text-secondary">Dhoondhein Apni Bus</h5>
         <form action="/search" method="POST">
             <div class="row g-2">
-                <div class="col-md-5">
-                    <input type="text" name="source" class="form-control form-control-lg" placeholder="Kahan se? (e.g. Patna)" required>
-                </div>
-                <div class="col-md-5">
-                    <input type="text" name="destination" class="form-control form-control-lg" placeholder="Kahan tak? (e.g. Gaya)" required>
-                </div>
-                <div class="col-md-2">
-                    <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold">SEARCH</button>
-                </div>
+                <div class="col-md-5"><input type="text" name="source" class="form-control" placeholder="Kahan se?" required></div>
+                <div class="col-md-5"><input type="text" name="destination" class="form-control" placeholder="Kahan tak?" required></div>
+                <div class="col-md-2"><button type="submit" class="btn btn-primary w-100">SEARCH</button></div>
             </div>
         </form>
     </div>
 
     {% if search_done %}
-        <h6 class="mb-3 text-muted">Available Buses:</h6>
-        {% if results %}
-            {% for bus in results %}
-            <div class="card mb-3 p-3 shadow-sm border-start border-primary border-4 bus-card">
-                <div class="row align-items-center">
-                    <div class="col-8">
-                        <h5 class="fw-bold text-primary mb-1">{{ bus['bus_name'] }}</h5>
-                        <div class="small text-dark">
-                            <p class="mb-1"><b>Route:</b> {{ bus['route_from'] }} ➔ {{ bus['route_to'] }}</p>
-                            <p class="mb-1 text-danger"><b>Departure:</b> {{ bus['dep_date'] }} at {{ bus['time'] }}</p>
-                            <p class="mb-0 text-muted">Driver: {{ bus['driver_name'] }}</p>
-                        </div>
-                    </div>
-                    <div class="col-4 text-end">
-                        <h4 class="fw-bold text-success">₹{{ bus['fare'] }}</h4>
-                        <a href="/book/{{ bus['id'] }}" class="btn btn-primary fw-bold px-4">BOOK</a>
-                    </div>
+        {% for bus in results %}
+        <div class="card mb-3 p-3 bus-card shadow-sm">
+            <div class="row align-items-center">
+                <div class="col-8">
+                    <h5 class="text-primary">{{ bus['bus_name'] }}</h5>
+                    <p class="mb-0">{{ bus['route_from'] }} ➔ {{ bus['route_to'] }}</p>
+                    <small>{{ bus['dep_date'] }} at {{ bus['time'] }}</small>
+                </div>
+                <div class="col-4 text-end">
+                    <h4 class="text-success">₹{{ bus['fare'] }}</h4>
+                    <a href="/book/{{ bus['id'] }}" class="btn btn-primary">BOOK</a>
                 </div>
             </div>
-            {% endfor %}
-        {% else %}
-            <div class="text-center py-5">
-                <img src="https://cdn-icons-png.flaticon.com/512/6134/6134065.png" width="80" class="mb-3 opacity-50">
-                <p class="text-muted">Maafi chahte hain, is route par koi bus nahi mili.</p>
-            </div>
-        {% endif %}
-    {% else %}
-        <div class="text-center py-5 text-muted">
-            <h4>Aapka Safar, Hamari Zimmedari</h4>
-            <p>Upar di gayi jagah mein apni city bhariyen aur bus dhoondhein.</p>
         </div>
+        {% endfor %}
     {% endif %}
 </div>
 
+<footer class="footer text-center">
+    <div class="container">
+        <p>© 2026 Yourtickets | <a href="/contact" class="text-white">Contact</a> | <a href="/terms" class="text-white">Terms</a> | <a href="/refund-policy" class="text-white">Refund</a></p>
+    </div>
+</footer>
+
 </body>
-  </html>
-  
+</html>
