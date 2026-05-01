@@ -6,23 +6,13 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <title>Yourtickets - Bihar Bus Booking</title>
     <style>
-        /* Footer ko hamesha niche rakhne ke liye */
         html, body { height: 100%; margin: 0; display: flex; flex-direction: column; }
         .content-wrapper { flex: 1 0 auto; }
-        
-        .search-card { border-radius: 20px; background: white; }
-        .bus-card { border-radius: 15px; transition: 0.3s; border-left: 5px solid #0d6efd; }
-        .bus-card:hover { transform: scale(1.02); }
-        
-        .footer { 
-            background: #212529; 
-            color: #adb5bd; 
-            padding: 30px 0; 
-            flex-shrink: 0; 
-            border-top: 3px solid #0d6efd;
-        }
+        .search-card { border-radius: 20px; background: white; padding: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .bus-card { border-radius: 15px; transition: 0.3s; border-left: 6px solid #0d6efd; margin-bottom: 15px; }
+        .bus-card:hover { transform: translateY(-5px); box-shadow: 0 6px 20px rgba(0,0,0,0.1); }
+        .footer { background: #212529; color: #adb5bd; padding: 30px 0; flex-shrink: 0; border-top: 3px solid #0d6efd; }
         .footer a { color: white; text-decoration: none; margin: 0 15px; font-size: 0.9rem; }
-        .footer a:hover { color: #0d6efd; }
     </style>
 </head>
 <body class="bg-light">
@@ -36,44 +26,55 @@
     </nav>
 
     <div class="container mb-5">
-        <div class="card p-4 shadow-sm mb-4 border-0 search-card text-center">
-            <h5 class="mb-3 fw-bold text-secondary">Dhoondhein Apni Bus</h5>
+        <div class="search-card text-center mb-5">
+            <h5 class="mb-4 fw-bold text-secondary">Dhoondhein Apni Bus</h5>
             <form action="/search" method="POST">
-                <div class="row g-2">
-                    <div class="col-md-5"><input type="text" name="source" class="form-control" placeholder="Kahan se? (e.g. Patna)" required></div>
-                    <div class="col-md-5"><input type="text" name="destination" class="form-control" placeholder="Kahan tak? (e.g. Gaya)" required></div>
-                    <div class="col-md-2"><button type="submit" class="btn btn-primary w-100 fw-bold">SEARCH</button></div>
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <input type="text" name="source" class="form-control" placeholder="Kahan se? (e.g. Patna)" required>
+                    </div>
+                    <div class="col-md-3">
+                        <input type="text" name="destination" class="form-control" placeholder="Kahan tak? (e.g. Gaya)" required>
+                    </div>
+                    <div class="col-md-3">
+                        <input type="date" name="travel_date" class="form-control" required>
+                    </div>
+                    <div class="col-md-3">
+                        <button type="submit" class="btn btn-primary w-100 fw-bold">SEARCH BUS</button>
+                    </div>
                 </div>
             </form>
         </div>
 
         {% if search_done %}
-            <h6 class="text-muted mb-3">Available Results:</h6>
+            <h6 class="text-muted mb-4 border-bottom pb-2">Available Results for {{ s_date }}:</h6>
             {% if results %}
                 {% for bus in results %}
-                <div class="card mb-3 p-3 bus-card shadow-sm">
+                <div class="card p-3 bus-card shadow-sm border-0">
                     <div class="row align-items-center">
-                        <div class="col-8">
+                        <div class="col-md-8">
                             <h5 class="fw-bold text-dark mb-1">{{ bus['bus_name'] }}</h5>
-                            <p class="mb-0 text-muted small">Route: {{ bus['route_from'] }} ➔ {{ bus['route_to'] }}</p>
-                            <span class="badge bg-light text-danger border">{{ bus['dep_date'] }} | {{ bus['time'] }}</span>
+                            <p class="mb-2 text-muted small">Route: {{ bus['route_from'] }} ➔ {{ bus['route_to'] }}</p>
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">{{ bus['time'] }}</span>
+                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle ms-2">{{ bus['dep_date'] }}</span>
                         </div>
-                        <div class="col-4 text-end">
+                        <div class="col-md-4 text-end">
                             <h4 class="fw-bold text-success mb-2">₹{{ bus['fare'] }}</h4>
-                            <a href="/book/{{ bus['id'] }}" class="btn btn-primary btn-sm px-4 fw-bold">BOOK</a>
+                            <a href="/book/{{ bus['id'] }}" class="btn btn-primary px-4 fw-bold shadow-sm">BOOK TICKET</a>
                         </div>
                     </div>
                 </div>
                 {% endfor %}
             {% else %}
-                <div class="text-center mt-5 text-muted">
-                    <p>Sorry, is route par koi bus nahi mili.</p>
+                <div class="text-center mt-5 py-5 bg-white rounded-4">
+                    <img src="https://cdn-icons-png.flaticon.com/512/6195/6195678.png" width="80" class="mb-3 opacity-50">
+                    <p class="text-muted">Sorry, is date par koi bus online nahi mili.</p>
                 </div>
             {% endif %}
         {% else %}
             <div class="text-center py-5 text-muted">
-                <h4>Aapka Safar, Hamari Zimmedari</h4>
-                <p>Shehar ke naam bhariye aur ticket book kariye.</p>
+                <h3>Aapka Safar, Hamari Zimmedari</h3>
+                <p>Shehar aur Date select karein aur turant ticket book karein.</p>
             </div>
         {% endif %}
     </div>
