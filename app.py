@@ -8,10 +8,9 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'bihar_bus_2026_secret')
 ADMIN_PASS = "ADMIN@2026"
 
-# Instamojo Setup
+# Instamojo Setup (Test Mode)
 API_KEY = os.environ.get('INSTAMOJO_API_KEY', 'test_f98...') 
 AUTH_TOKEN = os.environ.get('INSTAMOJO_AUTH_TOKEN', 'test_87a...')
-# Live mode ke liye endpoint 'https://www.instamojo.com/api/1.1/' use karein
 api = Instamojo(api_key=API_KEY, auth_token=AUTH_TOKEN, endpoint='https://test.instamojo.com/api/1.1/')
 
 def get_db():
@@ -38,29 +37,6 @@ def init_db():
 
 init_db()
 
-# --- Compliance Routes ---
-@app.route('/terms')
-def terms():
-    return render_template('terms.html')
-
-@app.route('/refund-policy')
-def refund_policy():
-    return render_template('refund.html')
-
-@app.route('/contact')
-def contact():
-    return """
-    <div style='font-family:sans-serif; padding:50px; line-height:1.6; max-width:600px; margin:auto; border:1px solid #eee; margin-top:50px; border-radius:10px;'>
-        <h2 style='color:#2c3e50;'>Contact Us</h2><hr>
-        <p><b>Business Name:</b> Yourtickets</p>
-        <p><b>Merchant Name:</b> Akash Kumar</p>
-        <p><b>Email:</b> upadhyaaman593@gmail.com</p>
-        <p><b>Address:</b> Patna, Bihar, India</p><br>
-        <a href='/' style='text-decoration:none; color:white; background:#007bff; padding:10px 20px; border-radius:5px;'>Back to Home</a>
-    </div>
-    """
-
-# --- Main Routes ---
 @app.route('/')
 def index():
     return render_template('index.html', search_done=False)
@@ -69,11 +45,10 @@ def index():
 def search():
     source = request.form.get('source', '').strip()
     dest = request.form.get('destination', '').strip()
-    travel_date = request.form.get('travel_date') # Naya Filter
+    travel_date = request.form.get('travel_date')
     
     conn = get_db()
     cur = conn.cursor(cursor_factory=RealDictCursor)
-    # Sirf wahi bus dikhegi jo Online ho aur jiski date match kare
     cur.execute("""SELECT * FROM buses 
                    WHERE route_from ILIKE %s AND route_to ILIKE %s 
                    AND dep_date = %s AND is_online = 1""", 
@@ -100,37 +75,64 @@ def update_status():
     new_status = int(request.form.get('status'))
     conn = get_db()
     cur = conn.cursor()
-    
-    if new_status == 1: # Online jane par date-time update mandatory hai
+    if new_status == 1:
         new_date = request.form.get('new_date')
         new_time = request.form.get('new_time')
         cur.execute("UPDATE buses SET is_online = %s, dep_date = %s, time = %s WHERE id = %s",
                    (new_status, new_date, new_time, session['driver_id']))
-    else: # Offline jane par sirf status badlo
+    else:
         cur.execute("UPDATE buses SET is_online = %s WHERE id = %s", (new_status, session['driver_id']))
-        
     conn.commit()
     cur.close()
     conn.close()
     return redirect(url_for('driver_dashboard'))
 
-@app.route('/driver_reg', methods=['GET', 'POST'])
-def driver_reg():
+# --- NAYA ROUTE: Driver Offline Booking ---
+@app.route('/driver_offline_book', methods=['POST'])
+def driver_offline_book():
+    if 'driver_id' not in session: return redirect(url_for('driver_login'))
+    bus_id = session['driver_id']
+    seat = request.form.get('seat_no')
+    name = request.form.get('p_name')
+    mobile = request.form.get('p_mobile')
+    
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("INSERT INTO bookings (bus_id, seat_no, p_name, p_mobile, payment_id, mode) VALUES (%s,%s,%s,%s,%s,%s)",
+               (bus_id, seat, name, mobile, 'OFFLINE-BY-DRIVER', 'Offline'))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(url_for('driver_dashboard'))
+
+@app.route('/driver_login', methods=['GET', 'POST'])
+def driver_login():
     if request.method == 'POST':
-        if request.form.get('admin_secret') != ADMIN_PASS: return "Galat Admin Code!"
         conn = get_db()
-        cur = conn.cursor()
-        cur.execute('''INSERT INTO buses (driver_name, driver_phone, password, bus_name, route_from, route_to,
-                      dep_date, arr_date, time, fare, window_seats) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)''',
-                   (request.form.get('d_name'), request.form.get('d_phone'), request.form.get('d_pass'),
-                    request.form.get('b_name'), request.form.get('from'), request.form.get('to'),
-                    request.form.get('d_date'), request.form.get('d_date'), request.form.get('time'),
-                    request.form.get('fare', 0), request.form.get('window_seats', '')))
-        conn.commit()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT * FROM buses WHERE driver_phone = %s AND password = %s",
+                            (request.form.get('phone'), request.form.get('password')))
+        driver = cur.fetchone()
         cur.close()
         conn.close()
-        return redirect(url_for('driver_login'))
-    return render_template('driver_reg.html')
+        if driver:
+            session['driver_id'] = driver['id']
+            return redirect(url_for('driver_dashboard'))
+        return "Invalid Login!"
+    return render_template('driver_login.html')
+
+@app.route('/dashboard')
+def driver_dashboard():
+    if 'driver_id' not in session: return redirect(url_for('driver_login'))
+    conn = get_db()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute("SELECT * FROM buses WHERE id = %s", (session['driver_id'],))
+    driver = cur.fetchone()
+    cur.execute("SELECT * FROM bookings WHERE bus_id = %s ORDER BY id DESC", (session['driver_id'],))
+    passengers = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template('dashboard.html', driver=driver, passengers=passengers)
 
 @app.route('/process_booking', methods=['POST'])
 def process_booking():
@@ -166,38 +168,10 @@ def payment_status():
         return redirect(url_for('success', id=request.args.get('payment_id'), seat=request.args.get('seat')))
     return "Payment Failed!"
 
-@app.route('/driver_login', methods=['GET', 'POST'])
-def driver_login():
-    if request.method == 'POST':
-        conn = get_db()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT * FROM buses WHERE driver_phone = %s AND password = %s",
-                            (request.form.get('phone'), request.form.get('password')))
-        driver = cur.fetchone()
-        cur.close()
-        conn.close()
-        if driver:
-            session['driver_id'] = driver['id']
-            return redirect(url_for('driver_dashboard'))
-        return "Invalid Login!"
-    return render_template('driver_login.html')
-
-@app.route('/dashboard')
-def driver_dashboard():
-    if 'driver_id' not in session: return redirect(url_for('driver_login'))
-    conn = get_db()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute("SELECT * FROM buses WHERE id = %s", (session['driver_id'],))
-    driver = cur.fetchone()
-    cur.execute("SELECT * FROM bookings WHERE bus_id = %s", (session['driver_id'],))
-    passengers = cur.fetchall()
-    cur.close()
-    conn.close()
-    return render_template('dashboard.html', driver=driver, passengers=passengers)
-
 @app.route('/success')
 def success():
     return render_template('success.html', payment_id=request.args.get('id'), seat=request.args.get('seat'))
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+    
