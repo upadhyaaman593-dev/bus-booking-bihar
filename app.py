@@ -5,10 +5,10 @@ from psycopg2.extras import RealDictCursor
 from instamojo_wrapper import Instamojo
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'bihar_bus_2026_secret')
+app.secret_key = os.environ.get('SECRET_KEY', 'bihar_bus_2026_secret_key_99')
 ADMIN_PASS = "ADMIN@2026"
 
-# Instamojo Setup (Test Mode)
+# Instamojo Setup
 API_KEY = os.environ.get('INSTAMOJO_API_KEY', 'test_f98...') 
 AUTH_TOKEN = os.environ.get('INSTAMOJO_AUTH_TOKEN', 'test_87a...')
 api = Instamojo(api_key=API_KEY, auth_token=AUTH_TOKEN, endpoint='https://test.instamojo.com/api/1.1/')
@@ -18,22 +18,26 @@ def get_db():
     conn = psycopg2.connect(DATABASE_URL, sslmode='require')
     return conn
 
+# Database tables ko har baar check karega ki bani hain ya nahi
 def init_db():
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute('''CREATE TABLE IF NOT EXISTS buses 
-                 (id SERIAL PRIMARY KEY, driver_name TEXT, driver_phone TEXT, 
-                  password TEXT, bus_name TEXT, route_from TEXT, route_to TEXT, 
-                  dep_date TEXT, arr_date TEXT, time TEXT, fare INTEGER,
-                  lower_count INTEGER DEFAULT 20, upper_count INTEGER DEFAULT 20,
-                  window_seats TEXT DEFAULT '', is_online INTEGER DEFAULT 1)''')
-    
-    cur.execute('''CREATE TABLE IF NOT EXISTS bookings 
-                 (id SERIAL PRIMARY KEY, bus_id INTEGER, seat_no TEXT, 
-                  p_name TEXT, p_mobile TEXT, payment_id TEXT, mode TEXT)''')
-    conn.commit()
-    cur.close()
-    conn.close()
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('''CREATE TABLE IF NOT EXISTS buses 
+                     (id SERIAL PRIMARY KEY, driver_name TEXT, driver_phone TEXT, 
+                      password TEXT, bus_name TEXT, route_from TEXT, route_to TEXT, 
+                      dep_date TEXT, arr_date TEXT, time TEXT, fare INTEGER,
+                      lower_count INTEGER DEFAULT 20, upper_count INTEGER DEFAULT 20,
+                      window_seats TEXT DEFAULT '', is_online INTEGER DEFAULT 1)''')
+        
+        cur.execute('''CREATE TABLE IF NOT EXISTS bookings 
+                     (id SERIAL PRIMARY KEY, bus_id INTEGER, seat_no TEXT, 
+                      p_name TEXT, p_mobile TEXT, payment_id TEXT, mode TEXT)''')
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"Database Init Error: {e}")
 
 init_db()
 
@@ -66,7 +70,7 @@ def book_bus(bus_id):
     bus = cur.fetchone()
     cur.close()
     conn.close()
-    if not bus: return "Bus details not found!"
+    if not bus: return "Bus details not found in database!"
     return render_template('booking.html', bus=bus)
 
 @app.route('/update_status', methods=['POST'])
@@ -87,7 +91,6 @@ def update_status():
     conn.close()
     return redirect(url_for('driver_dashboard'))
 
-# --- NAYA ROUTE: Driver Offline Booking ---
 @app.route('/driver_offline_book', methods=['POST'])
 def driver_offline_book():
     if 'driver_id' not in session: return redirect(url_for('driver_login'))
@@ -99,7 +102,7 @@ def driver_offline_book():
     conn = get_db()
     cur = conn.cursor()
     cur.execute("INSERT INTO bookings (bus_id, seat_no, p_name, p_mobile, payment_id, mode) VALUES (%s,%s,%s,%s,%s,%s)",
-               (bus_id, seat, name, mobile, 'OFFLINE-BY-DRIVER', 'Offline'))
+               (bus_id, seat, name, mobile, 'DIRECT-ENTRY', 'Offline'))
     conn.commit()
     cur.close()
     conn.close()
@@ -118,7 +121,7 @@ def driver_login():
         if driver:
             session['driver_id'] = driver['id']
             return redirect(url_for('driver_dashboard'))
-        return "Invalid Login!"
+        return "Ghalat details! Dubara koshish karein."
     return render_template('driver_login.html')
 
 @app.route('/dashboard')
@@ -144,14 +147,14 @@ def process_booking():
     try:
         response = api.payment_request_create(
             amount=fare,
-            purpose=f"Ticket {seat}",
+            purpose=f"Seat {seat}",
             buyer_name=name,
             phone=mobile,
             redirect_url=url_for('payment_status', bus_id=bus_id, seat=seat, name=name, mobile=mobile, _external=True)
         )
         return redirect(response['payment_request']['longurl'])
     except Exception as e:
-        return f"Payment Error: {str(e)}"
+        return f"Payment Gateway Error: {str(e)}"
 
 @app.route('/payment_status')
 def payment_status():
@@ -166,7 +169,7 @@ def payment_status():
         cur.close()
         conn.close()
         return redirect(url_for('success', id=request.args.get('payment_id'), seat=request.args.get('seat')))
-    return "Payment Failed!"
+    return "Payment Adhoora hai ya fail ho gaya."
 
 @app.route('/success')
 def success():
