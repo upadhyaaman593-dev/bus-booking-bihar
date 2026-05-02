@@ -5,7 +5,7 @@ from psycopg2.extras import RealDictCursor
 from instamojo_wrapper import Instamojo
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'bihar_bus_final_2026')
+app.secret_key = os.environ.get('SECRET_KEY', 'aman_bihar_bus_2026')
 ADMIN_PASS = "ADMIN@2026"
 
 # Instamojo Setup
@@ -17,9 +17,10 @@ api = Instamojo(
 
 def get_db():
     DATABASE_URL = os.environ.get('DATABASE_URL')
-    return psycopg2.connect(DATABASE_URL, sslmode='require')
+    return psycopg2.connect(DATABASE_URL, sslmode='require', connect_timeout=10)
 
 def init_db():
+    conn = None
     try:
         conn = get_db()
         cur = conn.cursor()
@@ -33,44 +34,16 @@ def init_db():
                       p_name TEXT, p_mobile TEXT, payment_id TEXT, mode TEXT)''')
         conn.commit()
         cur.close()
-        conn.close()
     except Exception as e:
-        print(f"DB Error: {e}")
+        print(f"Init DB Error: {e}")
+    finally:
+        if conn: conn.close()
 
 init_db()
 
 @app.route('/')
 def index():
     return render_template('index.html', search_done=False)
-
-# --- FIXED BOOKING ROUTE ---
-@app.route('/book/<int:bus_id>')
-def book_bus(bus_id):
-    try:
-        conn = get_db()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT * FROM buses WHERE id = %s", (bus_id,))
-        bus = cur.fetchone()
-        cur.close()
-        conn.close()
-        if not bus:
-            return "Bus details missing in Database! Please re-register the bus.", 404
-        return render_template('booking.html', bus=bus)
-    except Exception as e:
-        return f"Database Error: {str(e)}", 500
-
-# --- NEW FOOTER ROUTES (Fixes 404) ---
-@app.route('/contact')
-def contact():
-    return "<h3>Contact Us</h3><p>Email: support@yourtickets.com<br>Phone: +91 1234567890</p><a href='/'>Back to Home</a>"
-
-@app.route('/terms')
-def terms():
-    return "<h3>Terms & Conditions</h3><p>Tickets are non-refundable 2 hours before departure.</p><a href='/'>Back to Home</a>"
-
-@app.route('/refund')
-def refund():
-    return "<h3>Refund Policy</h3><p>Refunds take 5-7 working days to process.</p><a href='/'>Back to Home</a>"
 
 @app.route('/search', methods=['POST'])
 def search():
@@ -85,6 +58,40 @@ def search():
     cur.close()
     conn.close()
     return render_template('index.html', results=results, search_done=True, s_date=travel_date)
+
+@app.route('/book/<int:bus_id>')
+def book_bus(bus_id):
+    conn = None
+    try:
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT * FROM buses WHERE id = %s", (bus_id,))
+        bus = cur.fetchone()
+        cur.close()
+        if not bus: return "Bus not found!", 404
+        return render_template('booking.html', bus=bus)
+    except Exception as e:
+        return f"Database Error: {str(e)}", 500
+    finally:
+        if conn: conn.close()
+
+@app.route('/contact')
+def contact():
+    return render_template('info.html', title="Contact Us", content="Support ke liye humein email karein: <b>morrisaman7@gmail.com</b>")
+
+@app.route('/terms')
+def terms():
+    return render_template('info.html', title="Terms & Conditions", content="""
+        <ul>
+            <li>Tickets departure se 2 ghante pehle tak non-refundable hain.</li>
+            <li>Passengers ko 15 min pehle report karna hoga.</li>
+            <li>Bus delays ke liye company zimmedar nahi hai.</li>
+        </ul>
+    """)
+
+@app.route('/refund')
+def refund():
+    return render_template('info.html', title="Refund Policy", content="Refund process mein 5-7 working days lag sakte hain.")
 
 @app.route('/driver_reg', methods=['GET', 'POST'])
 def driver_reg():
@@ -141,23 +148,7 @@ def driver_offline_book():
     cur = conn.cursor()
     cur.execute("INSERT INTO bookings (bus_id, seat_no, p_name, p_mobile, payment_id, mode) VALUES (%s,%s,%s,%s,%s,%s)",
                (session['driver_id'], request.form.get('seat_no'), request.form.get('p_name'), 
-                request.form.get('p_mobile'), 'OFFLINE-ENTRY', 'Offline'))
-    conn.commit()
-    cur.close()
-    conn.close()
-    return redirect(url_for('driver_dashboard'))
-
-@app.route('/update_status', methods=['POST'])
-def update_status():
-    if 'driver_id' not in session: return redirect(url_for('driver_login'))
-    new_status = int(request.form.get('status'))
-    conn = get_db()
-    cur = conn.cursor()
-    if new_status == 1:
-        cur.execute("UPDATE buses SET is_online = %s, dep_date = %s, time = %s WHERE id = %s",
-                   (new_status, request.form.get('new_date'), request.form.get('new_time'), session['driver_id']))
-    else:
-        cur.execute("UPDATE buses SET is_online = %s WHERE id = %s", (new_status, session['driver_id']))
+                request.form.get('p_mobile'), 'OFFLINE', 'Offline'))
     conn.commit()
     cur.close()
     conn.close()
@@ -194,4 +185,3 @@ def success():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-        
