@@ -7,12 +7,10 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'aman_bihar_bus_2026')
 ADMIN_PASS = "ADMIN@2026"
 
-# Database Connection Function
 def get_db():
     DATABASE_URL = os.environ.get('DATABASE_URL')
     return psycopg2.connect(DATABASE_URL, sslmode='require', connect_timeout=10)
 
-# Database Table Setup
 def init_db():
     conn = None
     try:
@@ -53,25 +51,20 @@ def search():
     conn.close()
     return render_template('index.html', results=results, search_done=True, s_date=travel_date)
 
-# --- FIXED BOOKING ROUTE WITH WINDOW SEAT LOGIC ---
 @app.route('/book/<int:bus_id>')
 def book_bus(bus_id):
     conn = None
     try:
         conn = get_db()
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        # Bus details nikalna
         cur.execute("SELECT * FROM buses WHERE id = %s", (bus_id,))
         bus = cur.fetchone()
-        # Already booked seats nikalna
         cur.execute("SELECT seat_no FROM bookings WHERE bus_id = %s", (bus_id,))
-        booked_rows = cur.fetchall()
-        booked_seats = [r['seat_no'] for r in booked_rows]
+        booked_seats = [r['seat_no'] for r in cur.fetchall()]
         cur.close()
         
         if not bus: return "Bus details not found!", 404
         
-        # Window seats ko string se list mein badalna
         window_list = []
         if bus.get('window_seats'):
             window_list = [s.strip() for s in bus['window_seats'].split(',')]
@@ -82,7 +75,6 @@ def book_bus(bus_id):
     finally:
         if conn: conn.close()
 
-# --- DIRECT BOOKING WITHOUT RAZORPAY ---
 @app.route('/process_booking', methods=['POST'])
 def process_booking():
     bus_id = request.form.get('bus_id')
@@ -95,8 +87,9 @@ def process_booking():
     try:
         conn = get_db()
         cur = conn.cursor()
+        # STATUS FIX: Mode ko 'Online' set kiya user booking ke liye
         cur.execute("INSERT INTO bookings (bus_id, seat_no, p_name, p_mobile, payment_id, mode) VALUES (%s,%s,%s,%s,%s,%s)",
-                   (bus_id, seat, name, mobile, 'FREE-CONFIRM', 'Offline'))
+                   (bus_id, seat, name, mobile, 'ON-WEB', 'Online'))
         conn.commit()
         cur.close()
         conn.close()
@@ -104,25 +97,24 @@ def process_booking():
     except Exception as e:
         return f"Booking Failed: {str(e)}"
 
-# --- FOOTER PAGES ---
-@app.route('/contact')
-def contact():
-    return render_template('info.html', title="Contact Us", content="Support ke liye humein email karein: <b>morrisaman7@gmail.com</b>")
+@app.route('/driver_direct_book', methods=['POST'])
+def driver_direct_book():
+    if 'driver_id' not in session: return redirect(url_for('driver_login'))
+    bus_id = session['driver_id']
+    seat = request.form.get('seat')
+    name = request.form.get('name')
+    mobile = request.form.get('mobile')
+    
+    conn = get_db()
+    cur = conn.cursor()
+    # STATUS FIX: Driver dashboard se booking 'Offline' dikhegi
+    cur.execute("INSERT INTO bookings (bus_id, seat_no, p_name, p_mobile, payment_id, mode) VALUES (%s,%s,%s,%s,%s,%s)",
+               (bus_id, seat, name, mobile, 'OFF-MANUAL', 'Offline'))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(url_for('driver_dashboard'))
 
-@app.route('/terms')
-def terms():
-    return render_template('info.html', title="Terms & Conditions", content="<ul><li>Tickets 2 ghante pehle tak non-refundable hain.</li><li>15 min pehle report karein.</li></ul>")
-
-@app.route('/refund')
-def refund():
-    return render_template('info.html', title="Refund Policy", content="Refund process mein 5-7 working days lag sakte hain.")
-
-@app.route('/success')
-def success():
-    seat = request.args.get('seat')
-    return render_template('success.html', seat=seat)
-
-# --- DRIVER ROUTES ---
 @app.route('/driver_reg', methods=['GET', 'POST'])
 def driver_reg():
     if request.method == 'POST':
@@ -171,5 +163,13 @@ def driver_dashboard():
     conn.close()
     return render_template('dashboard.html', driver=driver, passengers=passengers)
 
+@app.route('/success')
+def success():
+    return render_template('success.html', seat=request.args.get('seat'))
+
+@app.route('/contact')
+def contact(): return render_template('info.html', title="Contact", content="morrisaman7@gmail.com")
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+        
