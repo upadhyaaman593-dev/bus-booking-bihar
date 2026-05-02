@@ -6,60 +6,66 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <title>Select Seat - {{ bus.bus_name }}</title>
     <style>
-        .seat-container { max-width: 400px; margin: 20px auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        .bus-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 20px; }
+        .seat-container { max-width: 500px; margin: 20px auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .deck-title { font-size: 0.8rem; color: #666; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #eee; margin-bottom: 10px; padding-bottom: 5px; }
+        .bus-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 30px; }
         .seat { 
-            height: 45px; border: 1px solid #ddd; border-radius: 5px; 
-            text-align: center; line-height: 45px; cursor: pointer; font-weight: bold;
+            height: 45px; border: 1px solid #ddd; border-radius: 8px; 
+            text-align: center; line-height: 45px; cursor: pointer; font-weight: bold; font-size: 0.9rem;
         }
-        /* Color Logic */
-        .available { background-color: #fff; border: 1px solid #ccc; }
         .booked { background-color: #dee2e6 !important; color: #adb5bd; cursor: not-allowed; border: none; }
-        .selected { background-color: #28a745 !important; color: white; border: none; }
-        
-        /* WINDOW SEAT: Blue border */
-        .window-seat { border: 2px solid #0d6efd !important; background-color: #f0f7ff; }
-        
-        .legend { display: flex; justify-content: space-around; margin-top: 20px; font-size: 0.8rem; }
-        .legend-box { width: 15px; height: 15px; display: inline-block; border-radius: 3px; margin-right: 5px; }
+        .selected { background-color: #007bff !important; color: white; border: none; }
+        .window-seat { border: 2px solid #0d6efd !important; background-color: #f0f7ff; color: #0d6efd; }
+        .legend { display: flex; justify-content: space-around; margin-top: 20px; font-size: 0.75rem; }
+        .legend-box { width: 12px; height: 12px; display: inline-block; border-radius: 3px; margin-right: 4px; }
     </style>
 </head>
 <body class="bg-light">
 
-<div class="container py-5">
+<div class="container py-4">
     <div class="seat-container">
-        <h4 class="fw-bold">{{ bus.bus_name }}</h4>
-        <p class="text-muted small">{{ bus.route_from }} to {{ bus.route_to }} | ₹{{ bus.fare }}</p>
+        <h5 class="fw-bold mb-1">{{ bus.bus_name }}</h5>
+        <p class="text-muted small mb-4">{{ bus.route_from }} ➔ {{ bus.route_to }}</p>
 
+        <div class="deck-title">Lower Deck</div>
         <div class="bus-grid">
-            {% for i in range(1, 31) %}
+            {% for i in range(1, 21) %}
                 {% set s_no = i|string %}
                 <div id="seat-{{ s_no }}" 
-                     class="seat {% if s_no in booked_seats %} booked {% elif s_no in window_seats %} window-seat {% else %} available {% endif %}"
-                     onclick="selectSeat('{{ s_no }}')">
-                    {{ s_no }}
-                </div>
+                     class="seat {% if s_no in booked_seats %} booked {% elif s_no in window_seats %} window-seat {% endif %}"
+                     onclick="selectSeat('{{ s_no }}')">{{ s_no }}</div>
+            {% endfor %}
+        </div>
+
+        <div class="deck-title">Upper Deck</div>
+        <div class="bus-grid">
+            {% for i in range(21, 41) %}
+                {% set s_no = i|string %}
+                <div id="seat-{{ s_no }}" 
+                     class="seat {% if s_no in booked_seats %} booked {% elif s_no in window_seats %} window-seat {% endif %}"
+                     onclick="selectSeat('{{ s_no }}')">{{ s_no }}</div>
             {% endfor %}
         </div>
 
         <div class="legend">
-            <div><span class="legend-box available"></span> Available</div>
+            <div><span class="legend-box border"></span> Available</div>
             <div><span class="legend-box window-seat" style="border: 1px solid blue;"></span> Window</div>
             <div><span class="legend-box booked"></span> Booked</div>
         </div>
 
-        <form action="/process_booking" method="POST" class="mt-4">
+        <form action="/process_booking" method="POST" class="mt-4 border-top pt-4">
             <input type="hidden" name="bus_id" value="{{ bus.id }}">
             <input type="hidden" name="seat_no" id="selected_seat" required>
             
-            <div class="mb-3">
-                <input type="text" name="p_name" class="form-control" placeholder="Passenger Name" required>
+            <div class="row g-2">
+                <div class="col-12 mb-2">
+                    <input type="text" name="p_name" class="form-control" placeholder="Passenger Name" required>
+                </div>
+                <div class="col-12 mb-3">
+                    <input type="number" name="p_mobile" class="form-control" placeholder="Mobile Number" required>
+                </div>
             </div>
-            <div class="mb-3">
-                <input type="number" name="p_mobile" class="form-control" placeholder="Mobile Number" required>
-            </div>
-            
-            <button type="submit" class="btn btn-primary w-100 fw-bold py-2">CONFIRM BOOKING</button>
+            <button type="submit" class="btn btn-primary w-100 fw-bold">CONFIRM BOOKING</button>
         </form>
     </div>
 </div>
@@ -68,11 +74,7 @@
     function selectSeat(id) {
         let seatEl = document.getElementById('seat-' + id);
         if (seatEl.classList.contains('booked')) return;
-
-        // Remove previous selection
         document.querySelectorAll('.seat').forEach(s => s.classList.remove('selected'));
-        
-        // Add new selection
         seatEl.classList.add('selected');
         document.getElementById('selected_seat').value = id;
     }
@@ -80,4 +82,3 @@
 
 </body>
 </html>
-
