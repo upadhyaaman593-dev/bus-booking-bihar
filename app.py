@@ -19,6 +19,7 @@ def get_db():
     DATABASE_URL = os.environ.get('DATABASE_URL')
     return psycopg2.connect(DATABASE_URL, sslmode='require', connect_timeout=10)
 
+# Database Table Setup
 def init_db():
     conn = None
     try:
@@ -59,6 +60,7 @@ def search():
     conn.close()
     return render_template('index.html', results=results, search_done=True, s_date=travel_date)
 
+# --- FIXED BOOKING ROUTE (Using seats.html) ---
 @app.route('/book/<int:bus_id>')
 def book_bus(bus_id):
     conn = None
@@ -68,13 +70,15 @@ def book_bus(bus_id):
         cur.execute("SELECT * FROM buses WHERE id = %s", (bus_id,))
         bus = cur.fetchone()
         cur.close()
-        if not bus: return "Bus not found!", 404
-        return render_template('booking.html', bus=bus)
+        if not bus: return "Bus details not found!", 404
+        # Aapke GitHub par 'seats.html' hai, isliye wahi use kar rahe hain
+        return render_template('seats.html', bus=bus)
     except Exception as e:
         return f"Database Error: {str(e)}", 500
     finally:
         if conn: conn.close()
 
+# --- FOOTER PAGES (Using info.html) ---
 @app.route('/contact')
 def contact():
     return render_template('info.html', title="Contact Us", content="Support ke liye humein email karein: <b>morrisaman7@gmail.com</b>")
@@ -84,15 +88,16 @@ def terms():
     return render_template('info.html', title="Terms & Conditions", content="""
         <ul>
             <li>Tickets departure se 2 ghante pehle tak non-refundable hain.</li>
-            <li>Passengers ko 15 min pehle report karna hoga.</li>
+            <li>Passengers ko departure time se 15 min pehle report karna hoga.</li>
             <li>Bus delays ke liye company zimmedar nahi hai.</li>
         </ul>
     """)
 
 @app.route('/refund')
 def refund():
-    return render_template('info.html', title="Refund Policy", content="Refund process mein 5-7 working days lag sakte hain.")
+    return render_template('info.html', title="Refund Policy", content="Refund process mein 5-7 working days lag sakte hain. Amount seedhe aapke original payment method mein jayega.")
 
+# --- DRIVER ROUTES ---
 @app.route('/driver_reg', methods=['GET', 'POST'])
 def driver_reg():
     if request.method == 'POST':
@@ -141,19 +146,6 @@ def driver_dashboard():
     conn.close()
     return render_template('dashboard.html', driver=driver, passengers=passengers)
 
-@app.route('/driver_offline_book', methods=['POST'])
-def driver_offline_book():
-    if 'driver_id' not in session: return redirect(url_for('driver_login'))
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("INSERT INTO bookings (bus_id, seat_no, p_name, p_mobile, payment_id, mode) VALUES (%s,%s,%s,%s,%s,%s)",
-               (session['driver_id'], request.form.get('seat_no'), request.form.get('p_name'), 
-                request.form.get('p_mobile'), 'OFFLINE', 'Offline'))
-    conn.commit()
-    cur.close()
-    conn.close()
-    return redirect(url_for('driver_dashboard'))
-
 @app.route('/process_booking', methods=['POST'])
 def process_booking():
     bus_id, seat, name, mobile, fare = request.form.get('bus_id'), request.form.get('seat_no'), request.form.get('p_name'), request.form.get('p_mobile'), request.form.get('fare')
@@ -185,3 +177,4 @@ def success():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+    
