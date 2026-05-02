@@ -7,10 +7,12 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'aman_bihar_bus_2026')
 ADMIN_PASS = "ADMIN@2026"
 
+# Database Connection Function
 def get_db():
     DATABASE_URL = os.environ.get('DATABASE_URL')
     return psycopg2.connect(DATABASE_URL, sslmode='require', connect_timeout=10)
 
+# Database Table Setup
 def init_db():
     conn = None
     try:
@@ -51,6 +53,7 @@ def search():
     conn.close()
     return render_template('index.html', results=results, search_done=True, s_date=travel_date)
 
+# --- SEAT SELECTION WITH DECK LOGIC ---
 @app.route('/book/<int:bus_id>')
 def book_bus(bus_id):
     conn = None
@@ -60,7 +63,8 @@ def book_bus(bus_id):
         cur.execute("SELECT * FROM buses WHERE id = %s", (bus_id,))
         bus = cur.fetchone()
         cur.execute("SELECT seat_no FROM bookings WHERE bus_id = %s", (bus_id,))
-        booked_seats = [r['seat_no'] for r in cur.fetchall()]
+        booked_rows = cur.fetchall()
+        booked_seats = [r['seat_no'] for r in booked_rows]
         cur.close()
         
         if not bus: return "Bus details not found!", 404
@@ -75,6 +79,7 @@ def book_bus(bus_id):
     finally:
         if conn: conn.close()
 
+# --- USER BOOKING (Mode set to Online) ---
 @app.route('/process_booking', methods=['POST'])
 def process_booking():
     bus_id = request.form.get('bus_id')
@@ -87,9 +92,9 @@ def process_booking():
     try:
         conn = get_db()
         cur = conn.cursor()
-        # STATUS FIX: Mode ko 'Online' set kiya user booking ke liye
+        # Yahan 'Online' mode set kiya hai
         cur.execute("INSERT INTO bookings (bus_id, seat_no, p_name, p_mobile, payment_id, mode) VALUES (%s,%s,%s,%s,%s,%s)",
-                   (bus_id, seat, name, mobile, 'ON-WEB', 'Online'))
+                   (bus_id, seat, name, mobile, 'WEB-BOOK', 'Online'))
         conn.commit()
         cur.close()
         conn.close()
@@ -97,6 +102,7 @@ def process_booking():
     except Exception as e:
         return f"Booking Failed: {str(e)}"
 
+# --- DRIVER MANUAL BOOKING (Mode set to Offline) ---
 @app.route('/driver_direct_book', methods=['POST'])
 def driver_direct_book():
     if 'driver_id' not in session: return redirect(url_for('driver_login'))
@@ -107,14 +113,15 @@ def driver_direct_book():
     
     conn = get_db()
     cur = conn.cursor()
-    # STATUS FIX: Driver dashboard se booking 'Offline' dikhegi
+    # Yahan 'Offline' mode set kiya hai
     cur.execute("INSERT INTO bookings (bus_id, seat_no, p_name, p_mobile, payment_id, mode) VALUES (%s,%s,%s,%s,%s,%s)",
-               (bus_id, seat, name, mobile, 'OFF-MANUAL', 'Offline'))
+               (bus_id, seat, name, mobile, 'MANUAL-DRV', 'Offline'))
     conn.commit()
     cur.close()
     conn.close()
     return redirect(url_for('driver_dashboard'))
 
+# --- DRIVER ROUTES ---
 @app.route('/driver_reg', methods=['GET', 'POST'])
 def driver_reg():
     if request.method == 'POST':
@@ -167,9 +174,6 @@ def driver_dashboard():
 def success():
     return render_template('success.html', seat=request.args.get('seat'))
 
-@app.route('/contact')
-def contact(): return render_template('info.html', title="Contact", content="morrisaman7@gmail.com")
-
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-        
+    
