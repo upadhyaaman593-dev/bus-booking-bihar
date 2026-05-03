@@ -31,50 +31,45 @@
                 <hr>
                 {% if driver.is_online == 1 %}
                     <h4 class="text-success fw-bold">● ONLINE</h4>
-                    <p class="small text-muted">Current Trip: {{ driver.dep_date }} at {{ driver.time }}</p>
+                    <p class="small text-muted">Status: {{ driver.dep_date }} ({{ driver.time }})</p>
                     <a href="/toggle_status/{{ driver.id }}" class="btn btn-danger w-100 fw-bold">STOP ONLINE BOOKING</a>
                 {% else %}
                     <h4 class="text-secondary fw-bold">● OFFLINE</h4>
-                    <button class="btn btn-success w-100 fw-bold" data-bs-toggle="modal" data-bs-target="#onlineModal">START ONLINE BOOKING</button>
+                    <p class="small text-muted">Online booking abhi band hai.</p>
+                    <button type="button" class="btn btn-success w-100 fw-bold" data-bs-toggle="modal" data-bs-target="#onlineModal">START ONLINE BOOKING</button>
                 {% endif %}
             </div>
 
-            <div class="modal fade" id="onlineModal" tabindex="-1" aria-hidden="true">
-                <div class="modal-dialog">
-                    <form action="/toggle_status/{{ driver.id }}" method="POST" class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">Select Trip Details</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body text-start">
-                            <div class="mb-3">
-                                <label class="form-label">Departure Date</label>
-                                <input type="date" name="dep_date" class="form-control" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Departure Time</label>
-                                <input type="time" name="dep_time" class="form-control" required>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="submit" class="btn btn-success w-100">Confirm & Go Online</button>
-                        </div>
-                    </form>
-                </div>
+            <div class="modal fade text-start" id="onlineModal" tabindex="-1" aria-labelledby="onlineModalLabel" aria-hidden="true">
+              <div class="modal-dialog">
+                <form action="/toggle_status/{{ driver.id }}" method="POST" class="modal-content">
+                  <div class="modal-header">
+                    <h5 class="modal-title" id="onlineModalLabel">Trip Details Select Karein</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                  </div>
+                  <div class="modal-body">
+                    <div class="mb-3">
+                      <label class="form-label">Date Select Karein</label>
+                      <input type="date" name="dep_date" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label">Departure Time</label>
+                      <input type="time" name="dep_time" class="form-control" required>
+                    </div>
+                  </div>
+                  <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary w-100 fw-bold">ONLINE AAO</button>
+                  </div>
+                </form>
+              </div>
             </div>
 
             <div class="card stat-card p-3 mt-3">
                 <h6 class="fw-bold">Manual/Offline Booking</h6>
                 <form action="/driver_direct_book" method="POST">
-                    <div class="mb-2">
-                        <input type="text" name="seat" class="form-control form-control-sm" placeholder="Seat No" required>
-                    </div>
-                    <div class="mb-2">
-                        <input type="text" name="name" class="form-control form-control-sm" placeholder="Passenger Name" required>
-                    </div>
-                    <div class="mb-2">
-                        <input type="number" name="mobile" class="form-control form-control-sm" placeholder="Mobile Number" required>
-                    </div>
+                    <div class="mb-2"><input type="text" name="seat" class="form-control form-control-sm" placeholder="Seat No (e.g. 5)" required></div>
+                    <div class="mb-2"><input type="text" name="name" class="form-control form-control-sm" placeholder="Passenger Name" required></div>
+                    <div class="mb-2"><input type="number" name="mobile" class="form-control form-control-sm" placeholder="Mobile Number" required></div>
                     <button type="submit" class="btn btn-primary btn-sm w-100">Add Passenger</button>
                 </form>
             </div>
@@ -86,12 +81,7 @@
                 <div class="table-responsive">
                     <table class="table table-hover align-middle">
                         <thead class="table-light">
-                            <tr>
-                                <th>Seat</th>
-                                <th>Name</th>
-                                <th>Mobile</th>
-                                <th>Mode</th>
-                            </tr>
+                            <tr><th>Seat</th><th>Name</th><th>Mobile</th><th>Mode</th></tr>
                         </thead>
                         <tbody>
                             {% for p in passengers %}
@@ -99,18 +89,10 @@
                                 <td class="fw-bold">{{ p.seat_no }}</td>
                                 <td>{{ p.p_name }}</td>
                                 <td>{{ p.p_mobile }}</td>
-                                <td>
-                                    {% if p.mode == 'Online' %}
-                                        <span class="badge badge-online">Online</span>
-                                    {% else %}
-                                        <span class="badge badge-offline">Offline</span>
-                                    {% endif %}
-                                </td>
+                                <td><span class="badge {% if p.mode == 'Online' %}badge-online{% else %}badge-offline{% endif %}">{{ p.mode }}</span></td>
                             </tr>
                             {% else %}
-                            <tr>
-                                <td colspan="4" class="text-center text-muted">Koi booking nahi mili.</td>
-                            </tr>
+                            <tr><td colspan="4" class="text-center text-muted">Koi booking nahi mili.</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
@@ -119,7 +101,5 @@
         </div>
     </div>
 </div>
-
 </body>
-    </html>
-    
+</html>
