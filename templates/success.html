@@ -6,32 +6,28 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <title>Booking Success</title>
     <style>
-        .success-card { max-width: 500px; margin: 40px auto; background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; }
+        body { background-color: #f8f9fa; }
+        .success-card { max-width: 500px; margin: 50px auto; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center; }
     </style>
 </head>
-<body class="bg-light">
-
-<div class="container">
-    <div class="success-card">
-        <h3 class="text-success fw-bold">Booking Successful!</h3>
-        <p class="text-muted">Aapka ticket confirm ho gaya hai.</p>
-        <hr>
-        <div class="text-start mb-4">
-            <p><strong>Seat Number:</strong> {{ seat }}</p>
-            <p><strong>Bus Name:</strong> {{ bus.bus_name }}</p>
-            <p><strong>Travel Date:</strong> {{ bus.dep_date }}</p>
-            <p><strong>Departure Time:</strong> {{ bus.time }}</p>
+<body>
+    <div class="container">
+        <div class="success-card">
+            <h2 class="text-success fw-bold mb-3">Ticket Booked!</h2>
+            <p class="text-muted">Aapki seat <strong>{{ seat }}</strong> confirm ho gayi hai.</p>
+            <hr>
+            <div class="bg-light p-3 rounded text-start mb-4">
+                <p class="mb-1"><strong>Bus:</strong> {{ bus.bus_name }}</p>
+                <p class="mb-1"><strong>Route:</strong> {{ bus.route_from }} to {{ bus.route_to }}</p>
+                <p class="mb-1"><strong>Time:</strong> {{ bus.dep_date }} at {{ bus.time }}</p>
+            </div>
+            <div class="alert alert-info">
+                <p class="mb-1">Boarding help ke liye driver se contact karein:</p>
+                <h4 class="fw-bold mb-0">{{ bus.driver_phone }}</h4>
+            </div>
+            <a href="/" class="btn btn-primary w-100 fw-bold mt-3">Home Par Jayein</a>
         </div>
-        
-        <div class="alert alert-primary py-3">
-            <h6 class="fw-bold mb-1">Driver Contact Information:</h6>
-            <p class="mb-0">Please call the driver for any queries regarding boarding.</p>
-            <h5 class="fw-bold mt-2"><a href="tel:{{ bus.driver_phone }}" class="text-decoration-none">Call: {{ bus.driver_phone }}</a></h5>
-        </div>
-        
-        <a href="/" class="btn btn-outline-primary w-100">Back to Home</a>
     </div>
-</div>
-
 </body>
 </html>
+
