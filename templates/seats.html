@@ -9,35 +9,35 @@
         .seat-container { max-width: 500px; margin: 20px auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         .deck-header { font-weight: bold; color: #555; background: #f8f9fa; padding: 5px 10px; border-radius: 5px; margin: 15px 0 10px 0; font-size: 0.9rem; text-align: center; border: 1px solid #eee; }
         .bus-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .seat { height: 45px; border: 1px solid #ddd !important; border-radius: 8px; text-align: center; line-height: 45px; cursor: pointer; font-weight: bold; font-size: 0.85rem; background-color: #fff; transition: 0.3s; }
         
-        /* Base Seat Style */
-        .seat { height: 45px; border: 1px solid #ddd !important; border-radius: 8px; text-align: center; line-height: 45px; cursor: pointer; font-weight: bold; font-size: 0.85rem; background-color: #ffffff; }
-        
-        /* Window Seat - Specific Blue Border */
+        /* Special Classes */
         .is-window { border: 2px solid #0d6efd !important; background-color: #f0f7ff !important; color: #0d6efd !important; }
-        
-        /* Booked & Selected */
         .booked { background-color: #dee2e6 !important; color: #adb5bd !important; cursor: not-allowed; border: none !important; }
-        .selected { background-color: #0d6efd !important; color: white !important; border: none !important; }
+        .selected { background-color: #0d6efd !important; color: white !important; border: none !important; transform: scale(1.05); }
         
-        .legend { display: flex; justify-content: space-around; margin-top: 25px; font-size: 0.75rem; }
-        .legend-box { width: 12px; height: 12px; display: inline-block; border-radius: 3px; margin-right: 4px; border: 1px solid #ccc; }
+        #display_seat_no { font-size: 1.2rem; color: #0d6efd; font-weight: bold; }
     </style>
 </head>
 <body class="bg-light">
 
 <div class="container py-4">
-    <div class="seat-container">
-        <h5 class="fw-bold text-center">{{ bus.bus_name }}</h5>
-        
+    <div class="seat-container shadow">
+        <h5 class="fw-bold text-center mb-1">{{ bus.bus_name }}</h5>
+        <p class="text-center text-muted small mb-3">Route: {{ bus.route_from }} To {{ bus.route_to }}</p>
+
+        <div class="text-center bg-light p-2 rounded mb-3 border">
+            Selected Seat: <span id="display_seat_no">None</span>
+        </div>
+
         <div class="deck-header">LOWER DECK</div>
         <div class="bus-grid mb-4">
             {% for i in range(1, 21) %}
-                {% set s_str = i|string %}
-                <div id="seat-{{ s_str }}" 
-                     class="seat {% if s_str in booked_seats %} booked {% elif s_str in window_seats %} is-window {% endif %}"
-                     onclick="selectSeat('{{ s_str }}')">
-                    {{ s_str }}
+                {% set s_id = i|string %}
+                <div id="seat-{{ s_id }}" 
+                     class="seat {% if s_id in booked_seats %} booked {% elif s_id in window_seats %} is-window {% endif %}"
+                     onclick="selectSeat('{{ s_id }}', 'LOW')">
+                    {{ s_id }}
                 </div>
             {% endfor %}
         </div>
@@ -45,44 +45,54 @@
         <div class="deck-header">UPPER DECK</div>
         <div class="bus-grid">
             {% for i in range(21, 41) %}
-                {% set s_str = i|string %}
-                <div id="seat-{{ s_str }}" 
-                     class="seat {% if s_str in booked_seats %} booked {% elif s_str in window_seats %} is-window {% endif %}"
-                     onclick="selectSeat('{{ s_str }}')">
-                    {{ s_str }}
+                {% set s_id = i|string %}
+                <div id="seat-{{ s_id }}" 
+                     class="seat {% if s_id in booked_seats %} booked {% elif s_id in window_seats %} is-window {% endif %}"
+                     onclick="selectSeat('{{ s_id }}', 'UP')">
+                    {{ s_id }}
                 </div>
             {% endfor %}
         </div>
 
-        <div class="legend mt-4">
-            <div><span class="legend-box"></span> Available</div>
-            <div><span class="legend-box" style="border: 2px solid #0d6efd; background:#f0f7ff"></span> Window</div>
-            <div><span class="legend-box" style="background:#dee2e6"></span> Booked</div>
-        </div>
-
-        <form action="/process_booking" method="POST" class="mt-4 border-top pt-4">
+        <form action="/process_booking" method="POST" class="mt-4 border-top pt-3">
             <input type="hidden" name="bus_id" value="{{ bus.id }}">
-            <input type="hidden" name="seat_no" id="selected_seat" required>
+            <input type="hidden" name="seat_no" id="hidden_seat_input" required>
+            
             <div class="mb-3">
                 <label class="form-label small fw-bold">Passenger Name</label>
-                <input type="text" name="p_name" class="form-control" placeholder="Full name" required>
+                <input type="text" name="p_name" class="form-control" required>
             </div>
             <div class="mb-3">
                 <label class="form-label small fw-bold">Mobile Number</label>
-                <input type="number" name="p_mobile" class="form-control" placeholder="Mobile" required>
+                <input type="number" name="p_mobile" class="form-control" required>
             </div>
-            <button type="submit" class="btn btn-primary w-100 fw-bold py-2 shadow-sm">BOOK TICKET</button>
+            <button type="submit" class="btn btn-primary w-100 fw-bold py-2">CONFIRM BOOKING</button>
         </form>
     </div>
 </div>
 
 <script>
-    function selectSeat(id) {
-        let seatEl = document.getElementById('seat-' + id);
+    function selectSeat(num, deck) {
+        // Find the clicked element
+        let seatEl = document.getElementById('seat-' + num);
+        
+        // Agar booked hai toh return
         if (seatEl.classList.contains('booked')) return;
+        
+        // Purani selection clear karein
         document.querySelectorAll('.seat').forEach(s => s.classList.remove('selected'));
+        
+        // Nayi selection add karein
         seatEl.classList.add('selected');
-        document.getElementById('selected_seat').value = id;
+        
+        // Format the display (e.g., UP 21 or LOW 5)
+        let formattedSeat = deck + " " + num;
+        
+        // UI update
+        document.getElementById('display_seat_no').innerText = formattedSeat;
+        
+        // Hidden input update (Jo server pe jayega)
+        document.getElementById('hidden_seat_input').value = formattedSeat;
     }
 </script>
 </body>
