@@ -7,10 +7,12 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'aman_bihar_bus_2026')
 ADMIN_PASS = "ADMIN@2026"
 
+# Database Connection Function
 def get_db():
     DATABASE_URL = os.environ.get('DATABASE_URL')
     return psycopg2.connect(DATABASE_URL, sslmode='require', connect_timeout=10)
 
+# Database Table Setup
 def init_db():
     conn = None
     try:
@@ -32,6 +34,8 @@ def init_db():
         if conn: conn.close()
 
 init_db()
+
+# --- MAIN ROUTES ---
 
 @app.route('/')
 def index():
@@ -108,6 +112,22 @@ def success():
     cur.close()
     conn.close()
     return render_template('success.html', seat=seat, bus=bus)
+
+# --- FOOTER ROUTES ---
+
+@app.route('/terms')
+def terms():
+    return render_template('terms.html')
+
+@app.route('/refund')
+def refund():
+    return render_template('refund.html')
+
+@app.route('/contact')
+def contact():
+    return render_template('contact.html')
+
+# --- DRIVER & DASHBOARD ROUTES ---
 
 @app.route('/toggle_status/<int:bus_id>', methods=['GET', 'POST'])
 def toggle_status(bus_id):
