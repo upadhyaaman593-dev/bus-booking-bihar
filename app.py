@@ -35,6 +35,8 @@ def init_db():
 
 init_db()
 
+# --- MAIN ROUTES ---
+
 @app.route('/')
 def index():
     return render_template('index.html', search_done=False)
@@ -53,7 +55,6 @@ def search():
     conn.close()
     return render_template('index.html', results=results, search_done=True, s_date=travel_date)
 
-# --- SEAT SELECTION WITH DECK LOGIC ---
 @app.route('/book/<int:bus_id>')
 def book_bus(bus_id):
     conn = None
@@ -79,7 +80,6 @@ def book_bus(bus_id):
     finally:
         if conn: conn.close()
 
-# --- USER BOOKING (Mode set to Online) ---
 @app.route('/process_booking', methods=['POST'])
 def process_booking():
     bus_id = request.form.get('bus_id')
@@ -92,7 +92,6 @@ def process_booking():
     try:
         conn = get_db()
         cur = conn.cursor()
-        # Yahan 'Online' mode set kiya hai
         cur.execute("INSERT INTO bookings (bus_id, seat_no, p_name, p_mobile, payment_id, mode) VALUES (%s,%s,%s,%s,%s,%s)",
                    (bus_id, seat, name, mobile, 'WEB-BOOK', 'Online'))
         conn.commit()
@@ -102,26 +101,36 @@ def process_booking():
     except Exception as e:
         return f"Booking Failed: {str(e)}"
 
-# --- DRIVER MANUAL BOOKING (Mode set to Offline) ---
-@app.route('/driver_direct_book', methods=['POST'])
-def driver_direct_book():
+# --- FOOTER & STATIC PAGES ROUTES (FIXED) ---
+
+@app.route('/terms')
+def terms():
+    return render_template('terms.html')
+
+@app.route('/refund')
+def refund():
+    return render_template('refund.html')
+
+@app.route('/contact')
+def contact():
+    # Agar contact.html template nahi hai toh hum direct text bhej sakte hain
+    return "<h3>Contact Us</h3><p>Email: upadhyaaman593@gmail.com</p><br><a href='/'>Back to Home</a>"
+
+# --- DRIVER & DASHBOARD ROUTES ---
+
+@app.route('/toggle_status/<int:bus_id>')
+def toggle_status(bus_id):
     if 'driver_id' not in session: return redirect(url_for('driver_login'))
-    bus_id = session['driver_id']
-    seat = request.form.get('seat')
-    name = request.form.get('name')
-    mobile = request.form.get('mobile')
     
     conn = get_db()
     cur = conn.cursor()
-    # Yahan 'Offline' mode set kiya hai
-    cur.execute("INSERT INTO bookings (bus_id, seat_no, p_name, p_mobile, payment_id, mode) VALUES (%s,%s,%s,%s,%s,%s)",
-               (bus_id, seat, name, mobile, 'MANUAL-DRV', 'Offline'))
+    # 1 ko 0 aur 0 ko 1 karne ka simple logic
+    cur.execute("UPDATE buses SET is_online = 1 - is_online WHERE id = %s", (bus_id,))
     conn.commit()
     cur.close()
     conn.close()
     return redirect(url_for('driver_dashboard'))
 
-# --- DRIVER ROUTES ---
 @app.route('/driver_reg', methods=['GET', 'POST'])
 def driver_reg():
     if request.method == 'POST':
@@ -169,6 +178,23 @@ def driver_dashboard():
     cur.close()
     conn.close()
     return render_template('dashboard.html', driver=driver, passengers=passengers)
+
+@app.route('/driver_direct_book', methods=['POST'])
+def driver_direct_book():
+    if 'driver_id' not in session: return redirect(url_for('driver_login'))
+    bus_id = session['driver_id']
+    seat = request.form.get('seat')
+    name = request.form.get('name')
+    mobile = request.form.get('mobile')
+    
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("INSERT INTO bookings (bus_id, seat_no, p_name, p_mobile, payment_id, mode) VALUES (%s,%s,%s,%s,%s,%s)",
+               (bus_id, seat, name, mobile, 'MANUAL-DRV', 'Offline'))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(url_for('driver_dashboard'))
 
 @app.route('/success')
 def success():
