@@ -16,6 +16,8 @@
         .available { background-color: #fff; }
         .booked { background-color: #dee2e6 !important; color: #adb5bd; cursor: not-allowed; border: none; }
         .selected { background-color: #0d6efd !important; color: white; border: none; }
+        
+        /* Window Seat styling for both decks */
         .window-seat { border: 2px solid #0d6efd !important; background-color: #f0f7ff; color: #0d6efd; }
         
         .legend { display: flex; justify-content: space-around; margin-top: 25px; font-size: 0.75rem; }
@@ -28,7 +30,7 @@
     <div class="seat-container">
         <h5 class="fw-bold text-center">{{ bus.bus_name }}</h5>
         <p class="text-muted small text-center mb-0">{{ bus.route_from }} to {{ bus.route_to }}</p>
-        <p class="text-center fw-bold text-primary mb-4">Fare: ₹{{ bus.fare }}</p>
+        <p class="text-center fw-bold text-primary mb-3">Fare: ₹{{ bus.fare }}</p>
 
         <div class="deck-header">LOWER DECK</div>
         <div class="bus-grid">
@@ -73,7 +75,7 @@
                 <input type="number" name="p_mobile" class="form-control" placeholder="Enter 10 digit mobile" required>
             </div>
             
-            <button type="submit" class="btn btn-primary w-100 fw-bold py-2">CONFIRM & GENERATE TICKET</button>
+            <button type="submit" id="confirm-btn" class="btn btn-primary w-100 fw-bold py-2">CONFIRM & BOOK TICKET</button>
         </form>
     </div>
 </div>
@@ -81,13 +83,17 @@
 <script>
     function selectSeat(id) {
         let seatEl = document.getElementById('seat-' + id);
+        
+        // Agar pehle se booked hai toh kuch mat karo
         if (seatEl.classList.contains('booked')) return;
 
-        // Reset previous selection
+        // Purani selection hatao
         document.querySelectorAll('.seat').forEach(s => s.classList.remove('selected'));
         
-        // Mark new selection
+        // Nayi selection lagao
         seatEl.classList.add('selected');
+        
+        // Hidden input mein seat number daalo
         document.getElementById('selected_seat').value = id;
     }
 </script>
