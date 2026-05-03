@@ -7,12 +7,11 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'aman_bihar_bus_2026')
 ADMIN_PASS = "ADMIN@2026"
 
-# Database Connection Function
+# --- Database Setup ---
 def get_db():
     DATABASE_URL = os.environ.get('DATABASE_URL')
     return psycopg2.connect(DATABASE_URL, sslmode='require', connect_timeout=10)
 
-# Database Table Setup
 def init_db():
     conn = None
     try:
@@ -35,7 +34,7 @@ def init_db():
 
 init_db()
 
-# --- MAIN ROUTES ---
+# --- User Routes ---
 
 @app.route('/')
 def index():
@@ -63,17 +62,20 @@ def book_bus(bus_id):
         cur = conn.cursor(cursor_factory=RealDictCursor)
         cur.execute("SELECT * FROM buses WHERE id = %s", (bus_id,))
         bus = cur.fetchone()
+        
         cur.execute("SELECT seat_no FROM bookings WHERE bus_id = %s", (bus_id,))
         booked_rows = cur.fetchall()
-        booked_seats = [r['seat_no'] for r in booked_rows]
-        cur.close()
-        
-        if not bus: return "Bus details not found!", 404
+        # Seat numbers ko string list mein convert karna taaki UI pe mismatch na ho
+        booked_seats = [str(r['seat_no']) for r in booked_rows]
         
         window_list = []
-        if bus.get('window_seats'):
-            window_list = [s.strip() for s in bus['window_seats'].split(',')]
+        if bus and bus.get('window_seats'):
+            # Spaces remove karke list banata hai (1-40 range support)
+            window_list = [s.strip() for s in str(bus['window_seats']).split(',')]
             
+        cur.close()
+        if not bus: return "Bus details not found!", 404
+        
         return render_template('seats.html', bus=bus, booked_seats=booked_seats, window_seats=window_list)
     except Exception as e:
         return f"Database Error: {str(e)}", 500
@@ -86,9 +88,7 @@ def process_booking():
     seat = request.form.get('seat_no')
     name = request.form.get('p_name')
     mobile = request.form.get('p_mobile')
-    
     if not seat: return "Please select a seat!", 400
-
     try:
         conn = get_db()
         cur = conn.cursor()
@@ -113,7 +113,7 @@ def success():
     conn.close()
     return render_template('success.html', seat=seat, bus=bus)
 
-# --- FOOTER ROUTES ---
+# --- Footer Routes ---
 
 @app.route('/terms')
 def terms():
@@ -127,7 +127,36 @@ def refund():
 def contact():
     return render_template('contact.html')
 
-# --- DRIVER & DASHBOARD ROUTES ---
+# --- Driver Dashboard Routes ---
+
+@app.route('/driver_login', methods=['GET', 'POST'])
+def driver_login():
+    if request.method == 'POST':
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT * FROM buses WHERE driver_phone = %s AND password = %s",
+                            (request.form.get('phone'), request.form.get('password')))
+        driver = cur.fetchone()
+        cur.close()
+        conn.close()
+        if driver:
+            session['driver_id'] = driver['id']
+            return redirect(url_for('driver_dashboard'))
+        return "Login Failed!"
+    return render_template('driver_login.html')
+
+@app.route('/dashboard')
+def driver_dashboard():
+    if 'driver_id' not in session: return redirect(url_for('driver_login'))
+    conn = get_db()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute("SELECT * FROM buses WHERE id = %s", (session['driver_id'],))
+    driver = cur.fetchone()
+    cur.execute("SELECT * FROM bookings WHERE bus_id = %s ORDER BY id DESC", (session['driver_id'],))
+    passengers = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template('dashboard.html', driver=driver, passengers=passengers)
 
 @app.route('/toggle_status/<int:bus_id>', methods=['GET', 'POST'])
 def toggle_status(bus_id):
@@ -164,35 +193,6 @@ def driver_reg():
         return redirect(url_for('driver_login'))
     return render_template('driver_reg.html')
 
-@app.route('/driver_login', methods=['GET', 'POST'])
-def driver_login():
-    if request.method == 'POST':
-        conn = get_db()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT * FROM buses WHERE driver_phone = %s AND password = %s",
-                            (request.form.get('phone'), request.form.get('password')))
-        driver = cur.fetchone()
-        cur.close()
-        conn.close()
-        if driver:
-            session['driver_id'] = driver['id']
-            return redirect(url_for('driver_dashboard'))
-        return "Login Failed!"
-    return render_template('driver_login.html')
-
-@app.route('/dashboard')
-def driver_dashboard():
-    if 'driver_id' not in session: return redirect(url_for('driver_login'))
-    conn = get_db()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute("SELECT * FROM buses WHERE id = %s", (session['driver_id'],))
-    driver = cur.fetchone()
-    cur.execute("SELECT * FROM bookings WHERE bus_id = %s ORDER BY id DESC", (session['driver_id'],))
-    passengers = cur.fetchall()
-    cur.close()
-    conn.close()
-    return render_template('dashboard.html', driver=driver, passengers=passengers)
-
 @app.route('/driver_direct_book', methods=['POST'])
 def driver_direct_book():
     if 'driver_id' not in session: return redirect(url_for('driver_login'))
@@ -211,4 +211,3 @@ def driver_direct_book():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-    
