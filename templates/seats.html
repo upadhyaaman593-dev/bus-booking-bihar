@@ -10,10 +10,13 @@
         .deck-header { font-weight: bold; color: #555; background: #f8f9fa; padding: 5px 10px; border-radius: 5px; margin: 15px 0 10px 0; font-size: 0.9rem; text-align: center; border: 1px solid #eee; }
         .bus-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
         .seat { height: 45px; border: 1px solid #ddd; border-radius: 8px; text-align: center; line-height: 45px; cursor: pointer; font-weight: bold; font-size: 0.85rem; background-color: #fff; }
-        .booked { background-color: #dee2e6 !important; color: #adb5bd; cursor: not-allowed; border: none; }
-        .selected { background-color: #0d6efd !important; color: white; border: none; }
-        /* Window Seat styling for both decks */
+        
+        .booked { background-color: #dee2e6 !important; color: #adb5bd; cursor: not-allowed; border: none !important; }
+        .selected { background-color: #0d6efd !important; color: white !important; border: none !important; }
+        
+        /* Window Seat Highlight - Dono deck ke liye */
         .window-seat { border: 2px solid #0d6efd !important; background-color: #f0f7ff !important; color: #0d6efd; }
+        
         .legend { display: flex; justify-content: space-around; margin-top: 25px; font-size: 0.75rem; }
         .legend-box { width: 12px; height: 12px; display: inline-block; border-radius: 3px; margin-right: 4px; }
     </style>
@@ -23,11 +26,10 @@
 <div class="container py-4">
     <div class="seat-container">
         <h5 class="fw-bold text-center">{{ bus.bus_name }}</h5>
-        <p class="text-muted small text-center mb-0">{{ bus.route_from }} to {{ bus.route_to }}</p>
-        <p class="text-center fw-bold text-primary mb-3">Fare: ₹{{ bus.fare }}</p>
+        <p class="text-muted small text-center mb-3">{{ bus.route_from }} to {{ bus.route_to }}</p>
 
         <div class="deck-header">LOWER DECK</div>
-        <div class="bus-grid">
+        <div class="bus-grid mb-4">
             {% for i in range(1, 21) %}
                 {% set s_no = i|string %}
                 <div id="seat-{{ s_no }}" 
@@ -50,9 +52,9 @@
             {% endfor %}
         </div>
 
-        <div class="legend">
+        <div class="legend mt-4">
             <div><span class="legend-box border"></span> Available</div>
-            <div><span class="legend-box window-seat" style="border: 1px solid #0d6efd;"></span> Window</div>
+            <div><span class="legend-box window-seat"></span> Window</div>
             <div><span class="legend-box booked"></span> Booked</div>
         </div>
 
@@ -61,13 +63,13 @@
             <input type="hidden" name="seat_no" id="selected_seat" required>
             <div class="mb-3">
                 <label class="form-label small fw-bold">Passenger Name</label>
-                <input type="text" name="p_name" class="form-control" placeholder="Enter full name" required>
+                <input type="text" name="p_name" class="form-control" placeholder="Full name" required>
             </div>
             <div class="mb-3">
                 <label class="form-label small fw-bold">Mobile Number</label>
-                <input type="number" name="p_mobile" class="form-control" placeholder="Enter 10 digit mobile" required>
+                <input type="number" name="p_mobile" class="form-control" placeholder="10 digit mobile" required>
             </div>
-            <button type="submit" id="confirm-btn" class="btn btn-primary w-100 fw-bold py-2">CONFIRM & BOOK TICKET</button>
+            <button type="submit" class="btn btn-primary w-100 fw-bold py-2 shadow-sm">CONFIRM BOOKING</button>
         </form>
     </div>
 </div>
@@ -82,5 +84,5 @@
     }
 </script>
 </body>
-                    </html>
-                    
+                </html>
+                
