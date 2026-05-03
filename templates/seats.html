@@ -17,8 +17,8 @@
         .booked { background-color: #dee2e6 !important; color: #adb5bd; cursor: not-allowed; border: none; }
         .selected { background-color: #0d6efd !important; color: white; border: none; }
         
-        /* Window Seat styling for both decks */
-        .window-seat { border: 2px solid #0d6efd !important; background-color: #f0f7ff; color: #0d6efd; }
+        /* Unified Window Seat styling for all decks */
+        .window-seat { border: 2px solid #0d6efd !important; background-color: #f0f7ff !important; color: #0d6efd; }
         
         .legend { display: flex; justify-content: space-around; margin-top: 25px; font-size: 0.75rem; }
         .legend-box { width: 12px; height: 12px; display: inline-block; border-radius: 3px; margin-right: 4px; }
@@ -38,7 +38,7 @@
                 {% set s_no = i|string %}
                 <div id="seat-{{ s_no }}" 
                      class="seat {% if s_no in booked_seats %} booked {% elif s_no in window_seats %} window-seat {% else %} available {% endif %}"
-                     onclick="selectSeat('{{ s_no }}')">
+                     {% if s_no not in booked_seats %} onclick="selectSeat('{{ s_no }}')" {% endif %}>
                     {{ s_no }}
                 </div>
             {% endfor %}
@@ -50,7 +50,7 @@
                 {% set s_no = i|string %}
                 <div id="seat-{{ s_no }}" 
                      class="seat {% if s_no in booked_seats %} booked {% elif s_no in window_seats %} window-seat {% else %} available {% endif %}"
-                     onclick="selectSeat('{{ s_no }}')">
+                     {% if s_no not in booked_seats %} onclick="selectSeat('{{ s_no }}')" {% endif %}>
                     {{ s_no }}
                 </div>
             {% endfor %}
@@ -58,7 +58,7 @@
 
         <div class="legend">
             <div><span class="legend-box border"></span> Available</div>
-            <div><span class="legend-box window-seat" style="border: 1px solid blue;"></span> Window</div>
+            <div><span class="legend-box window-seat" style="border: 1px solid #0d6efd;"></span> Window</div>
             <div><span class="legend-box booked"></span> Booked</div>
         </div>
 
@@ -83,17 +83,10 @@
 <script>
     function selectSeat(id) {
         let seatEl = document.getElementById('seat-' + id);
-        
-        // Agar pehle se booked hai toh kuch mat karo
         if (seatEl.classList.contains('booked')) return;
 
-        // Purani selection hatao
         document.querySelectorAll('.seat').forEach(s => s.classList.remove('selected'));
-        
-        // Nayi selection lagao
         seatEl.classList.add('selected');
-        
-        // Hidden input mein seat number daalo
         document.getElementById('selected_seat').value = id;
     }
 </script>
