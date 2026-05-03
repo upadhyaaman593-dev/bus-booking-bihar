@@ -93,7 +93,6 @@ def process_booking():
         conn.commit()
         cur.close()
         conn.close()
-        # Redirect to success page with bus_id to fetch driver details
         return redirect(url_for('success', seat=seat, bus_id=bus_id))
     except Exception as e:
         return f"Booking Failed: {str(e)}"
@@ -113,37 +112,37 @@ def success():
 @app.route('/toggle_status/<int:bus_id>', methods=['GET', 'POST'])
 def toggle_status(bus_id):
     if 'driver_id' not in session: return redirect(url_for('driver_login'))
-    
     conn = get_db()
     cur = conn.cursor()
-    
     if request.method == 'POST':
-        # When going online, update date and time from the form
-        dep_date = request.form.get('dep_date')
-        dep_time = request.form.get('dep_time')
-        cur.execute("UPDATE buses SET is_online = 1, dep_date = %s, time = %s WHERE id = %s", 
-                   (dep_date, dep_time, bus_id))
+        new_date = request.form.get('dep_date')
+        new_time = request.form.get('dep_time')
+        cur.execute("UPDATE buses SET is_online = 1, dep_date = %s, time = %s WHERE id = %s", (new_date, new_time, bus_id))
     else:
-        # Simple toggle to go offline
         cur.execute("UPDATE buses SET is_online = 0 WHERE id = %s", (bus_id,))
-        
     conn.commit()
     cur.close()
     conn.close()
     return redirect(url_for('driver_dashboard'))
 
-@app.route('/dashboard')
-def driver_dashboard():
-    if 'driver_id' not in session: return redirect(url_for('driver_login'))
-    conn = get_db()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute("SELECT * FROM buses WHERE id = %s", (session['driver_id'],))
-    driver = cur.fetchone()
-    cur.execute("SELECT * FROM bookings WHERE bus_id = %s ORDER BY id DESC", (session['driver_id'],))
-    passengers = cur.fetchall()
-    cur.close()
-    conn.close()
-    return render_template('dashboard.html', driver=driver, passengers=passengers)
+@app.route('/driver_reg', methods=['GET', 'POST'])
+def driver_reg():
+    if request.method == 'POST':
+        if request.form.get('admin_secret') != ADMIN_PASS: return "Wrong Admin Secret!"
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('''INSERT INTO buses (driver_name, driver_phone, password, bus_name, route_from, route_to,
+                      dep_date, arr_date, time, fare, window_seats, is_online) 
+                      VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, 1)''',
+                   (request.form.get('d_name'), request.form.get('d_phone'), request.form.get('d_pass'),
+                    request.form.get('b_name'), request.form.get('from'), request.form.get('to'),
+                    request.form.get('d_date'), request.form.get('d_date'), request.form.get('time'),
+                    request.form.get('fare'), request.form.get('window_seats')))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return redirect(url_for('driver_login'))
+    return render_template('driver_reg.html')
 
 @app.route('/driver_login', methods=['GET', 'POST'])
 def driver_login():
@@ -161,6 +160,19 @@ def driver_login():
         return "Login Failed!"
     return render_template('driver_login.html')
 
+@app.route('/dashboard')
+def driver_dashboard():
+    if 'driver_id' not in session: return redirect(url_for('driver_login'))
+    conn = get_db()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute("SELECT * FROM buses WHERE id = %s", (session['driver_id'],))
+    driver = cur.fetchone()
+    cur.execute("SELECT * FROM bookings WHERE bus_id = %s ORDER BY id DESC", (session['driver_id'],))
+    passengers = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template('dashboard.html', driver=driver, passengers=passengers)
+
 @app.route('/driver_direct_book', methods=['POST'])
 def driver_direct_book():
     if 'driver_id' not in session: return redirect(url_for('driver_login'))
@@ -168,7 +180,6 @@ def driver_direct_book():
     seat = request.form.get('seat')
     name = request.form.get('name')
     mobile = request.form.get('mobile')
-    
     conn = get_db()
     cur = conn.cursor()
     cur.execute("INSERT INTO bookings (bus_id, seat_no, p_name, p_mobile, payment_id, mode) VALUES (%s,%s,%s,%s,%s,%s)",
